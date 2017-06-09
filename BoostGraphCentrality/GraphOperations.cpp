@@ -110,7 +110,7 @@ std::string GraphOperations::CreateTree(std::string text){
 		a[text.size()]=0;
 		memcpy(a,text.c_str(),text.size());
 
-		//OpenFromString(g, dp, a);
+		OpenFromString(g, dp, a);
 		//OpenFromXML(g, dp, "../samples/graph-li.xml");
 
 		// Create data for Dijkstra
