@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+   <key id="d0" for="node" attr.name="vertex_name" attr.type="string"/>
+   <graph id="G" edgedefault="undirected">
+      <node id="n0"><data key="d0">A</data> </node>
+      <node id="n1"><data key="d0">B</data> </node>
+      <node id="n2"><data key="d0">C</data> </node>
+      <node id="n3"><data key="d0">D</data> </node>
+      <node id="n100"><data key="d0">E</data> </node>
+      <edge id="e0" source="n0" target="n1" />
+      <edge id="e1" source="n0" target="n2" />
+      <edge id="e2" source="n0" target="n100" />
+      <edge id="e3" source="n1" target="n0" />
+      <edge id="e4" source="n1" target="n2" />
+      <edge id="e5" source="n1" target="n3" />
+      <edge id="e6" source="n1" target="n100" />
+      <edge id="e7" source="n2" target="n0" />
+      <edge id="e8" source="n2" target="n1" />
+      <edge id="e9" source="n2" target="n3" />
+      <edge id="e10" source="n2" target="n100" />
+      <edge id="e11" source="n3" target="n1" />
+      <edge id="e12" source="n3" target="n2" />
+      <edge id="e13" source="n100" target="n0" />
+      <edge id="e14" source="n100" target="n1" />
+      <edge id="e15" source="n100" target="n2" />
+   </graph>
+</graphml>

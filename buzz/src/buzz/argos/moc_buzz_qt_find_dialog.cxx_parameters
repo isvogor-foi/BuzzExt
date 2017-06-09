@@ -1,0 +1,16 @@
+-I/home/ivan/dev/solo-stuff/buzz/src
+-I/home/ivan/dev/solo-stuff/buzz/src
+-I/usr/local/include
+-I/usr/include/qt4
+-I/usr/include/qt4/QtOpenGL
+-I/usr/include/qt4/QtGui
+-I/usr/include/qt4/QtCore
+-I/usr/local/include
+-D_GNU_SOURCE
+-D$<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG>
+-DQT_OPENGL_LIB
+-DQT_GUI_LIB
+-DQT_CORE_LIB
+-o
+/home/ivan/dev/solo-stuff/buzz/src/buzz/argos/moc_buzz_qt_find_dialog.cxx
+/home/ivan/dev/solo-stuff/buzz/src/buzz/argos/buzz_qt_find_dialog.h
