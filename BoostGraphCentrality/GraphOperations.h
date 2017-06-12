@@ -70,6 +70,7 @@ namespace graph_buzz{
 	public:
 		void WriteGraphToFile(const Graph& g, const std::string& filename);
 		std::string WriteGraphToString(const Graph& g, dynamic_properties& dp);
+		std::string WriteGraphToDotString(const Graph& g, dynamic_properties& dp);
 		void OpenFromXML(Graph& g, dynamic_properties& dp, const std::string& filename);
 		void OpenFromString(Graph& g, dynamic_properties& dp, char buffer []);
 		void SetNames(Graph& g, NameMap& nameMap);

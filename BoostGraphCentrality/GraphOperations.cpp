@@ -21,11 +21,38 @@ void GraphOperations::WriteGraphToFile(const Graph& g, const std::string& filena
   boost::write_graphviz(graphStream, g );
   graphStream.close();
 }
-std::string GraphOperations::WriteGraphToString(const Graph& g, dynamic_properties& dp)
+std::string GraphOperations::WriteGraphToDotString(const Graph& g, dynamic_properties& dp)
 {
   std::stringstream stream;
   boost::write_graphviz_dp(stream, g, dp);
   return stream.str();
+}
+
+std::string GraphOperations::WriteGraphToString(const Graph& g, dynamic_properties& dp)
+{
+  std::stringstream stream;
+  boost::write_graphviz_dp(stream, g, dp);
+
+  std::string delimiter = "\n";
+  std::string result = "";
+  std::string s = stream.str();
+
+  size_t pos = 0;
+  std::string token;
+  int i = 0;
+  while((pos = s.find(delimiter)) != std::string::npos){
+	  token = s.substr(0, pos);
+	  if(i > num_vertices(g)){
+		  result += token;
+	  }
+	  s.erase(0, pos + delimiter.length());
+	  i++;
+  }
+
+  boost::replace_all(result, ";}",";");
+  boost::replace_all(result, "--","-");
+  boost::replace_all(result, " ","");
+  return result;
 }
 
 void GraphOperations::OpenFromXML(Graph& g, dynamic_properties& dp, const std::string& filename){
@@ -158,7 +185,6 @@ std::string GraphOperations::CreateTree(std::string text){
 		 dynamic_properties dp2;
 		 dp2.property("node_id", get(vertex_name, tree));
 		 return WriteGraphToString(tree, dp2);
-
 		//return text;
 }
 
