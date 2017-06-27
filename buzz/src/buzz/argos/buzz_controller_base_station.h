@@ -1,5 +1,5 @@
-#ifndef BUZZ_CONTROLLER_EFOOTBOT_H
-#define BUZZ_CONTROLLER_EFOOTBOT_H
+#ifndef BUZZ_CONTROLLER_BASESTATION_H
+#define BUZZ_CONTROLLER_BASESTATION_H
 
 #include <buzz/argos/buzz_controller.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_actuator.h>
@@ -46,6 +46,7 @@ public:
    void SetWheels(Real f_left_speed, Real f_right_speed);
    void SetWheelSpeedsFromVector(const CVector2& c_heading);
    std::string GenerateTree(std::string graphml);
+   std::string m_GeneratedTree;
 
 private:
 

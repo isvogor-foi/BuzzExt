@@ -97,6 +97,17 @@ int BuzzSetLEDsBs(buzzvm_t vm) {
 /****************************************/
 
 static int BuzzGoToBs(buzzvm_t vm) {
+   /* Push the vector components */
+   buzzvm_lload(vm, 1);
+   buzzvm_lload(vm, 2);
+   /* Create a new vector with that */
+   CVector2 cDir(buzzvm_stack_at(vm, 2)->f.value,
+				 buzzvm_stack_at(vm, 1)->f.value);
+   /* Get pointer to the controller */
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+   /* Call function */
+   reinterpret_cast<CBuzzControllerBaseStation*>(buzzvm_stack_at(vm, 1)->u.value)->SetWheelSpeedsFromVector(cDir);
    return buzzvm_ret0(vm);
 }
 
@@ -252,6 +263,7 @@ std::string CBuzzControllerBaseStation::GenerateTree(std::string graphml){
 	graph_buzz::GraphOperations go;
 	std::string solution = go.CreateTree(graphml);
 	//std::cout<<"Graf: " << solution <<std::endl;
+	m_GeneratedTree = solution;
 	return solution;
 }
 
