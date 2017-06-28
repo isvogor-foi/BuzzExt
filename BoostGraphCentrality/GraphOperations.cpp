@@ -129,6 +129,7 @@ std::string GraphOperations::CreateTree(std::string text){
 		Graph g;
 		dynamic_properties dp;
 
+
 		 const std::string vn = "vertex_name";
 		 dp.property(vn,get(vertex_name,g));
 
@@ -154,6 +155,12 @@ std::string GraphOperations::CreateTree(std::string text){
 		//SetNames(g, nameMap);
 		SetWeights(g, 1);
 		//PrintGraphProperties(g, nameMap, distanceMap);
+
+		/************************************************/
+
+
+
+		/************************************************/
 
 		// floyd warshall
 		std::vector< std::pair<int, float> > centralities = GetCentralities(g, nameMap, indexMap);

@@ -145,7 +145,16 @@ void CBuzzController::Init(TConfigurationNode& t_node) {
 /****************************************/
 
 void CBuzzController::Reset() {
-   SetBytecode(m_strBytecodeFName, m_strDbgInfoFName);
+   /* Reset debug message */
+   m_strDebugMsg = "";
+   try {
+      /* Set the bytecode again */
+      if(m_strBytecodeFName != "" && m_strDbgInfoFName != "")
+         SetBytecode(m_strBytecodeFName, m_strDbgInfoFName);
+   }
+   catch(CARGoSException& ex) {
+      LOGERR << ex.what();
+   }
 }
 
 /****************************************/
@@ -154,6 +163,10 @@ void CBuzzController::Reset() {
 void CBuzzController::ControlStep() {
    ProcessInMsgs();
    UpdateSensors();
+   int cur_robots=(int)buzzdict_size(m_tBuzzVM->swarmmembers)+1;
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "ROBOTS", 1));
+   buzzvm_pushi(m_tBuzzVM, cur_robots);
+   buzzvm_gstore(m_tBuzzVM);
    if(buzzvm_function_call(m_tBuzzVM, "step", 0) != BUZZVM_STATE_READY) {
       fprintf(stderr, "[ROBOT %u] %s: execution terminated abnormally: %s\n\n",
               m_tBuzzVM->robot,

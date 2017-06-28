@@ -1,6 +1,6 @@
 #include "buzz_controller_base_station.h"
 #include <argos3/core/utility/logging/argos_log.h>
-#include "/home/ivan/dev/eclipse/workspace/BoostGraph/FindCenter.h"
+#include "/home/ivan/dev/buzz-ext/BoostGraphCentrality/GraphOperations.h"
 
 /****************************************/
 /****************************************/
@@ -62,6 +62,17 @@ int BuzzSetWheelsBs(buzzvm_t vm) {
 /****************************************/
 
 int BuzzStartChargingBs(buzzvm_t vm) {
+   /* Push the vector components */
+   buzzvm_lload(vm, 1);
+   buzzvm_lload(vm, 2);
+   /* Create a new vector with that */
+   CVector2 cDir(buzzvm_stack_at(vm, 2)->f.value,
+                 buzzvm_stack_at(vm, 1)->f.value);
+   /* Get pointer to the controller */
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+   /* Call function */
+   reinterpret_cast<CBuzzControllerBaseStation*>(buzzvm_stack_at(vm, 1)->u.value)->SetWheelSpeedsFromVector(cDir);
    return buzzvm_ret0(vm);
 }
 
@@ -102,7 +113,7 @@ static int BuzzGoToBs(buzzvm_t vm) {
    buzzvm_lload(vm, 2);
    /* Create a new vector with that */
    CVector2 cDir(buzzvm_stack_at(vm, 2)->f.value,
-				 buzzvm_stack_at(vm, 1)->f.value);
+                 buzzvm_stack_at(vm, 1)->f.value);
    /* Get pointer to the controller */
    buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
    buzzvm_gload(vm);
@@ -263,7 +274,7 @@ std::string CBuzzControllerBaseStation::GenerateTree(std::string graphml){
 	graph_buzz::GraphOperations go;
 	std::string solution = go.CreateTree(graphml);
 	//std::cout<<"Graf: " << solution <<std::endl;
-	m_GeneratedTree = solution;
+	m_GeneratedTree=solution;
 	return solution;
 }
 
@@ -273,7 +284,7 @@ std::string CBuzzControllerBaseStation::GenerateTree(std::string graphml){
 buzzvm_state CBuzzControllerBaseStation::RegisterFunctions() {
    /* Register base functions */
    CBuzzController::RegisterFunctions();
-	Register("type", 89);
+	Register("robot_type", 89);
 
    if(m_pcWheels) {
       /* BuzzSetWheels */

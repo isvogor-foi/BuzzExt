@@ -207,7 +207,6 @@ void CBuzzControllerEFootBot::UpdateSensors() {
    /*
     * Update proximity sensor table
     */
-   Register("type", 99);
 
    if(m_batterySensor != NULL) {
       Register("soc", m_batterySensor->GetSoc());
@@ -356,6 +355,9 @@ void CBuzzControllerEFootBot::StopProcessing(){
 buzzvm_state CBuzzControllerEFootBot::RegisterFunctions() {
    /* Register base functions */
    CBuzzController::RegisterFunctions();
+   Register("robot_type", 99);
+
+
    if(m_pcWheels) {
       /* BuzzSetWheels */
       buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "set_wheels", 1));
