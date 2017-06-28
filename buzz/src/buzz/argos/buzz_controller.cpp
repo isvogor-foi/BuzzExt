@@ -122,13 +122,16 @@ void CBuzzController::Init(TConfigurationNode& t_node) {
       m_pcRABS   = GetSensor  <CCI_RangeAndBearingSensor  >("range_and_bearing");
       /* Get the script name */
       std::string strBCFName;
-      GetNodeAttribute(t_node, "bytecode_file", strBCFName);
+      GetNodeAttributeOrDefault(t_node, "bytecode_file", strBCFName, strBCFName);
       /* Get the script name */
       std::string strDbgFName;
-      GetNodeAttribute(t_node, "debug_file", strDbgFName);
+      GetNodeAttributeOrDefault(t_node, "debug_file", strDbgFName, strDbgFName);
       /* Initialize the rest */
       m_unRobotId = FromString<UInt16>(GetId().substr(2));
-      SetBytecode(strBCFName, strDbgFName);
+      if(strBCFName != "" && strDbgFName != "")
+         SetBytecode(strBCFName, strDbgFName);
+      else
+         m_tBuzzVM = buzzvm_new(m_unRobotId);
       UpdateSensors();
       /* Set initial robot message (id and then all zeros) */
       CByteArray cData;
@@ -161,12 +164,12 @@ void CBuzzController::Reset() {
 /****************************************/
 
 void CBuzzController::ControlStep() {
+   if(!m_tBuzzVM || m_tBuzzVM->state != BUZZVM_STATE_READY) {
+      fprintf(stderr, "[ROBOT %s] Robot is not ready to execute Buzz script.\n\n",
+              GetId().c_str());
+   }
    ProcessInMsgs();
    UpdateSensors();
-   int cur_robots=(int)buzzdict_size(m_tBuzzVM->swarmmembers)+1;
-   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "ROBOTS", 1));
-   buzzvm_pushi(m_tBuzzVM, cur_robots);
-   buzzvm_gstore(m_tBuzzVM);
    if(buzzvm_function_call(m_tBuzzVM, "step", 0) != BUZZVM_STATE_READY) {
       fprintf(stderr, "[ROBOT %u] %s: execution terminated abnormally: %s\n\n",
               m_tBuzzVM->robot,
@@ -185,7 +188,7 @@ void CBuzzController::Destroy() {
    if(m_tBuzzVM) {
       buzzvm_function_call(m_tBuzzVM, "destroy", 0);
       buzzvm_destroy(&m_tBuzzVM);
-      buzzdebug_destroy(&m_tBuzzDbgInfo);
+      if(m_tBuzzDbgInfo) buzzdebug_destroy(&m_tBuzzDbgInfo);
    }
 }
 
@@ -235,25 +238,31 @@ void CBuzzController::SetBytecode(const std::string& str_bc_fname,
 /****************************************/
 
 std::string CBuzzController::ErrorInfo() {
-   const buzzdebug_entry_t* ptInfo = buzzdebug_info_get_fromoffset(m_tBuzzDbgInfo, &m_tBuzzVM->pc);
-   std::ostringstream ossErrMsg;
-   if(ptInfo) {
-      ossErrMsg << (*ptInfo)->fname
-                << ":"
-                << (*ptInfo)->line
-                << ":"
-                << (*ptInfo)->col;
+   if(m_tBuzzDbgInfo) {
+      const buzzdebug_entry_t* ptInfo = buzzdebug_info_get_fromoffset(m_tBuzzDbgInfo, &m_tBuzzVM->pc);
+      std::ostringstream ossErrMsg;
+      if(ptInfo) {
+         ossErrMsg << (*ptInfo)->fname
+                   << ":"
+                   << (*ptInfo)->line
+                   << ":"
+                   << (*ptInfo)->col;
+      }
+      else {
+         ossErrMsg << "At bytecode offset "
+                   << m_tBuzzVM->pc;
+      }
+      if(m_tBuzzVM->errormsg)
+         ossErrMsg << ": "
+                   << m_tBuzzVM->errormsg;
+      else
+         ossErrMsg << ": "
+                   << buzzvm_error_desc[m_tBuzzVM->error];
+      return ossErrMsg.str();
    }
    else {
-      ossErrMsg << "At bytecode offset "
-                << m_tBuzzVM->pc;
+      return "Script not loaded!";
    }
-   ossErrMsg << ": "
-             << buzzvm_error_desc[m_tBuzzVM->error];
-   if(m_tBuzzVM->errormsg)
-      ossErrMsg << ": "
-                << m_tBuzzVM->errormsg;
-   return ossErrMsg.str();
 }
 
 /****************************************/

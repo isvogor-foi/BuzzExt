@@ -54,7 +54,7 @@ static int BuzzGoTo(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
-int BuzzSetWheels(buzzvm_t vm) {
+int BuzzSetWheelsFb(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 2);
    /* Push speeds */
    buzzvm_lload(vm, 1); /* Left speed */
@@ -76,7 +76,7 @@ int BuzzSetWheels(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
-int BuzzSetLEDs(buzzvm_t vm) {
+int BuzzSetLEDsFb(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 3);
    /* Push the color components */
    buzzvm_lload(vm, 1);
@@ -359,9 +359,9 @@ buzzvm_state CBuzzControllerEFootBot::RegisterFunctions() {
 
 
    if(m_pcWheels) {
-      /* BuzzSetWheels */
+      /* BuzzSetWheelsFb */
       buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "set_wheels", 1));
-      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetWheels));
+      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetWheelsFb));
       buzzvm_gstore(m_tBuzzVM);
       /* BuzzGoTo */
       buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "goto", 1));
@@ -370,9 +370,9 @@ buzzvm_state CBuzzControllerEFootBot::RegisterFunctions() {
       /* BuzzGet */
    }
    if(m_pcLEDs) {
-      /* BuzzSetLEDs */
+      /* BuzzSetLEDsFb */
       buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "setleds", 1));
-      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetLEDs));
+      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetLEDsFb));
       buzzvm_gstore(m_tBuzzVM);
    }
    /* BuzzStartCharging */

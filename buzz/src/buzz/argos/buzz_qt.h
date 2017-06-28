@@ -4,7 +4,6 @@
 #include <argos3/plugins/simulator/visualizations/qt-opengl/qtopengl_user_functions.h>
 #include <argos3/plugins/robots/foot-bot/simulator/footbot_entity.h>
 #include <argos3/plugins/robots/spiri/simulator/spiri_entity.h>
-#include "/home/ivan/dev/argos-custom/argos3/plugins/robots/e-footbot/simulator/efootbot_entity.h"
 #include <buzz/argos/buzz_controller.h>
 
 class CBuzzQTMainWindow;
@@ -30,8 +29,6 @@ public:
    void Draw(CFootBotEntity& c_entity);
 
    void Draw(CSpiriEntity& c_entity);
-
-   void Draw(CEFootBotEntity& c_entity);
 
 protected:
 

@@ -24,6 +24,14 @@ public:
    virtual void ControlStep();
    virtual void Destroy();
 
+   inline const std::string& GetBytecodeFName() const {
+      return m_strBytecodeFName;
+   }
+
+   inline const std::string& GetDbgInfoFName() const {
+      return m_strDbgInfoFName;
+   }
+
    virtual void SetBytecode(const std::string& str_bc_fname,
                             const std::string& str_dbg_fname);
 
@@ -41,6 +49,14 @@ public:
 
    inline void SetDebugMsg(const std::string& str_msg) {
       m_strDebugMsg = str_msg;
+   }
+
+   inline buzzdebug_t& GetBuzzDbgInfo() {
+      return m_tBuzzDbgInfo;
+   }
+
+   inline const buzzdebug_t& GetBuzzDbgInfo() const {
+      return m_tBuzzDbgInfo;
    }
 
    std::string ErrorInfo();

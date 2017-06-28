@@ -8,7 +8,6 @@
 CBuzzQT::CBuzzQT() {
    RegisterUserFunction<CBuzzQT,CFootBotEntity>(&CBuzzQT::Draw);
    RegisterUserFunction<CBuzzQT,CSpiriEntity>(&CBuzzQT::Draw);
-   RegisterUserFunction<CBuzzQT,CEFootBotEntity>(&CBuzzQT::Draw);
 }
  
 /****************************************/
@@ -49,13 +48,6 @@ void CBuzzQT::Draw(CSpiriEntity& c_entity) {
 /****************************************/
 /****************************************/
 
-void CBuzzQT::Draw(CEFootBotEntity& c_entity) {
-   Draw(dynamic_cast<CBuzzController&>(c_entity.GetControllableEntity().GetController()));
-}
-
-/****************************************/
-/****************************************/
-
 void CBuzzQT::Draw(CBuzzController& c_contr) {
    /* This is the message that will be shown */
    std::string strMsg("R" + ToString(c_contr.GetBuzzVM()->robot));
@@ -71,8 +63,8 @@ void CBuzzQT::Draw(CBuzzController& c_contr) {
    glColor3ub(cColor.GetRed(), cColor.GetGreen(), cColor.GetBlue());
    /* The position of the text is expressed wrt the reference point of
     * the robot */
-   GetMainWindow().GetOpenGLWidget().renderText(0.0, 0.0, 0.4,   // position
-                                                strMsg.c_str()); // text
+   DrawText(CVector3(0.0, 0.0, 0.4), // position
+            strMsg.c_str());         // text
    /* Restore lighting */
    glEnable(GL_LIGHTING);
    /* Restore face culling */

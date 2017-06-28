@@ -54,7 +54,7 @@ static int BuzzGoTo(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
-int BuzzSetWheelsFb(buzzvm_t vm) {
+int BuzzSetWheels(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 2);
    /* Push speeds */
    buzzvm_lload(vm, 1); /* Left speed */
@@ -76,7 +76,7 @@ int BuzzSetWheelsFb(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
-int BuzzSetLEDsFb(buzzvm_t vm) {
+int BuzzSetLEDs(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 3);
    /* Push the color components */
    buzzvm_lload(vm, 1);
@@ -129,7 +129,6 @@ void CBuzzControllerFootBot::Init(TConfigurationNode& t_node) {
       catch(CARGoSException& ex) {}
       try {
          m_pcProximity = GetSensor<CCI_FootBotProximitySensor>("footbot_proximity");
-
       }
       catch(CARGoSException& ex) {}
       /* Initialize the rest */
@@ -248,7 +247,6 @@ void CBuzzControllerFootBot::SetWheelSpeedsFromVector(const CVector2& c_heading)
 
 void CBuzzControllerFootBot::SetWheels(Real f_left_speed,
                                        Real f_right_speed) {
-   DEBUG("SetWheels(%f, %f)\n", f_left_speed, f_right_speed);
    m_pcWheels->SetLinearVelocity(f_left_speed,
                                  f_right_speed);
 }
@@ -269,7 +267,7 @@ buzzvm_state CBuzzControllerFootBot::RegisterFunctions() {
    if(m_pcWheels) {
       /* BuzzSetWheels */
       buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "set_wheels", 1));
-      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetWheelsFb));
+      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetWheels));
       buzzvm_gstore(m_tBuzzVM);
       /* BuzzGoTo */
       buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "goto", 1));
@@ -279,7 +277,7 @@ buzzvm_state CBuzzControllerFootBot::RegisterFunctions() {
    if(m_pcLEDs) {
       /* BuzzSetLEDs */
       buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "setleds", 1));
-      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetLEDsFb));
+      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetLEDs));
       buzzvm_gstore(m_tBuzzVM);
    }
    return m_tBuzzVM->state;

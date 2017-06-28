@@ -138,7 +138,6 @@ extern "C" {
     */
    extern buzzobj_t buzzobj_iclone(const buzzobj_t o);
 
-
    /*
     * Destroys a Buzz object.
     * @param o The object to destroy.
@@ -181,17 +180,17 @@ extern "C" {
    extern int buzzobj_cmp(const buzzobj_t a,
                           const buzzobj_t b);
 
-    /*
-     * C-closure to return the type of an object.
-     * @param vm The VM data.
-     */
-    extern int buzzobj_type(struct buzzvm_s* vm);
+   /*
+    * C-closure to return the type of an object.
+    * @param vm The VM data.
+    */
+   extern int buzzobj_type(struct buzzvm_s* vm);
 
-    /*
-     * C-closure to clone a Buzz object.
-     * @param vm The VM data.
-     */
-    extern int buzzobj_clone(struct buzzvm_s* vm);
+   /*
+    * C-closure to clone a Buzz object.
+    * @param vm The VM data.
+    */
+   extern int buzzobj_clone(struct buzzvm_s* vm);
 
    /*
     * C-closure to return the size of a table.

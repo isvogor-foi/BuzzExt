@@ -92,8 +92,6 @@ int main(int argc, char** argv) {
    buzzvm_pushs(vm, buzzvm_string_register(vm, "print", 1));
    buzzvm_pushcc(vm, buzzvm_function_register(vm, print));
    buzzvm_gstore(vm);
-
-
    /* Run byte code */
    do if(trace) buzzdebug_stack_dump(vm, 1, stdout);
    while(buzzvm_step(vm) == BUZZVM_STATE_READY);
