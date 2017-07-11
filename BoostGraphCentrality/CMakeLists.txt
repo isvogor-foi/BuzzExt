@@ -9,7 +9,7 @@ if(Boost_FOUND)
   MESSAGE( STATUS "Lib -> : " ${Boost_LIBRARIES} )
 endif()
 
-SET(HEADERS GraphOperations.h)
+SET(HEADERS GraphOperations.h zip.h)
 
 # build SO 
 ADD_LIBRARY(graph_operations SHARED GraphOperations.cpp ${HEADERS})

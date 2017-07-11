@@ -16,6 +16,10 @@
 #include <boost/graph/closeness_centrality.hpp>
 #include <boost/graph/betweenness_centrality.hpp>
 #include <boost/graph/property_maps/constant_property_map.hpp>
+#include <boost/graph/strong_components.hpp>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/graph_utility.hpp>
+#include <boost/config.hpp>
 #include <boost/graph/graphml.hpp>
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/copy.hpp>
@@ -70,19 +74,39 @@ namespace graph_buzz{
 
 	class GraphOperations {
 	public:
+		class TreeVertex {
+		private:
+			int _depth;
+			Vertex _m;
+			Vertex _m_parent;
+			std::vector<TreeVertex>* _children;
+
+		public:
+			TreeVertex(Vertex id, int depth);
+			void SetParent(Vertex parent);
+			void SetChild(TreeVertex* child);
+			std::vector<TreeVertex>* GetChildren();
+			Vertex GetParent();
+			Vertex GetId();
+		};
+
+	public:
 		void WriteGraphToFile(const Graph& g, const std::string& filename);
 		std::string WriteGraphToString(const Graph& g, dynamic_properties& dp);
 		std::string WriteGraphToDotString(const Graph& g, dynamic_properties& dp);
 		void OpenFromXML(Graph& g, dynamic_properties& dp, const std::string& filename);
 		void OpenFromString(Graph& g, dynamic_properties& dp, char buffer []);
 		void SetNames(Graph& g, NameMap& nameMap);
-		void SetWeights(Graph& g, float weight);
+		void SetWeights(Graph& g, DistanceMap& distanceMap, float weight);
 		void PrintGraphProperties(Graph& g, NameMap& nameMap, DistanceMap& distanceMap);
-		void RemoveEdges(Graph &g);
+		void RemoveEdges(Graph& g);
+		Vertex GetFreeNeighbor(Graph& g, Vertex vertex, std::vector<Vertex> taken);
 		std::string CreateTree(std::string text);
+		std::string CreateBalancedForest(std::string text);
 		std::string SayHello();
 	private:
 		std::vector< std::pair<int, float> > GetCentralities(Graph& g, NameMap& nameMap, IndexMap& indexMap);
+		std::vector<TreeVertex*> zipit(std::vector<TreeVertex*> next_level_nodes, std::vector<TreeVertex>* children, int depth);
 	};
 }
 
