@@ -237,9 +237,8 @@ std::string GraphOperations::CreateBalancedForest ( std::string text )
     OpenFromString ( g, dp, graph_xml );
     //OpenFromXML(g, dp, "../samples/graph-li.xml");
     //OpenFromXML(g, dp, "../samples/temp.xml");
-
+    
     //---
-
     // Create data for Dijkstra
     std::vector<Vertex> predecessors ( boost::num_vertices ( g ) ); 	// To store parents
     std::vector<Weight> distances ( boost::num_edges ( g ) ); 		// To store distances
@@ -255,20 +254,6 @@ std::string GraphOperations::CreateBalancedForest ( std::string text )
     //dynamic_properties dp2;
     SetWeights ( g, distanceMap, 1.0f );
     //PrintGraphProperties(g, nameMap, distanceMap);
-
-    /*
-    std::vector<Vertex> taken_vertices;
-
-    for(int i = 0; i < 10; i++) {
-    	Vertex neighbour = GetFreeNeighbor(g, vertex(15, g), taken_vertices);
-    	if(neighbour != BAD_OUTPUT){
-    		taken_vertices.push_back(neighbour);
-    	}
-    }
-
-    std::cout<<"Size: " << taken_vertices.size() << std::endl;
-    */
-
 
     std::vector<TreeVertex*> subtrees;
     std::vector<TreeVertex*> current_level_nodes;
@@ -290,8 +275,6 @@ std::string GraphOperations::CreateBalancedForest ( std::string text )
     int d = 0;
     int depth = 5;
 
-
-
     while ( d < depth ) {
         // check to move to next depth level
 	std::cout << subtrees[0]->GetId() << " TEST: " << subtrees[0]->GetChildren()->size() << std::endl;
@@ -300,21 +283,8 @@ std::string GraphOperations::CreateBalancedForest ( std::string text )
             BOOST_FOREACH ( TreeVertex* current_vertex, current_level_nodes ) {
                 std::vector<TreeVertex>* children = current_vertex->GetChildren();
                 next_level_nodes = zipit ( next_level_nodes, children, d );
-		//for(std::vector<TreeVertex>::iterator it = children->begin(); it != children->end(); ++it){
-		//  next_level_nodes.push_back(&(*it));
-		//}
             }
             current_level_nodes = next_level_nodes;
-            //current_level_nodes.clear();// = next_level_nodes;
-	    /*
-	    BOOST_FOREACH(TreeVertex* branch, next_level_nodes)
-	      current_level_nodes.push_back(branch);
-	      //TODO: Here is the issue i think... Zippit function kills parenthood...
-	    /*
-            std::cout<<" ------------------------ "<<std::endl;
-            BOOST_FOREACH(TreeVertex* current_vertex, current_level_nodes){
-	      std::cout<<"Current level: " << current_vertex->GetId() << std::endl;
-            }*/
             increase_depth = false;
         }
         if ( current_level_nodes.empty() ) {
@@ -322,28 +292,6 @@ std::string GraphOperations::CreateBalancedForest ( std::string text )
         }
         // add children non-greedy
         int empty_set_counter = current_level_nodes.size();
-        /*
-        std::cout<<"Current level size: " << empty_set_counter << std::endl;
-	for(std::vector<TreeVertex*>::iterator it = current_level_nodes.begin(); it != current_level_nodes.end(); ++it){
-	    std::cout<< "Hello: " << (*it)->GetId() << std::endl;
-            Vertex neigbour = GetFreeNeighbor ( g, vertex ( (*it)->GetId(), g ), taken_vertices );
-            if ( neigbour != BAD_OUTPUT ) {
-                taken_vertices.push_back ( neigbour );
-                TreeVertex* new_child = new TreeVertex ( neigbour, d + 1 );
-                new_child->SetParent ( (*it)->GetId() );
-                (*it)->SetChild ( new_child );
-                cout<< (*it)->GetId() << " takes " << new_child->GetId() << std::endl;
-		cout<< (*it)->GetId() << " has: " << (*it)->GetChildren()->size() << std::endl;
-
-            } else {
-                empty_set_counter -= 1;
-                if ( empty_set_counter == 0 ) {
-                    d++;
-                    increase_depth = true;
-                }
-	    }
-	}
-	*/
         BOOST_FOREACH ( TreeVertex* current_vertex, current_level_nodes ) {
             std::cout<< "Hello: " << current_vertex->GetId() << std::endl;
             Vertex neigbour = GetFreeNeighbor ( g, vertex ( current_vertex->GetId(), g ), taken_vertices );
@@ -368,20 +316,6 @@ std::string GraphOperations::CreateBalancedForest ( std::string text )
 
     // printout
     BOOST_FOREACH ( TreeVertex* current_vertex, subtrees ) {
-      /*
-        std::vector<TreeVertex>* current_children_list = current_vertex->GetChildren();
-        std::vector<int> subtree_vertices;
-        subtree_vertices.push_back ( current_vertex->GetId() );
-        int current_depth = 0;
-        while ( current_depth < depth ) {
-	  std::vector<TreeVertex*> next_level_nodes;
-	  for( std::vector<TreeVertex>::iterator current_child = current_children_list->begin(); current_child != current_children_list->end(); ++current_child ){
-	    std::cout<<"Current child: " << (*current_child).GetId() << ", children: " << (*current_child).GetChildren()->size() <<std::endl;
-	  }
-	  current_depth++;
-	}
-	std::cout<<" ---- " << std::endl;
-	*/
       GetSubgraph(g, current_vertex, depth);
     }
 
@@ -421,62 +355,81 @@ Graph GraphOperations::GetSubgraph ( Graph g, TreeVertex* branch, int max_depth 
       current_depth++;
       current_children_list = next_children_list;
     }
-    // copy a graph and remove extra vertices
-    Graph subgraph;
-    boost::copy_graph ( g, subgraph );
-    RemoveEdges ( subgraph );
-    graph_traits<Graph>::vertex_iterator i, end;
-    for ( tie ( i, end ) = vertices ( g ); i != end; ++i ) {
-	int current = (*i);
-	if(!IsIn(subtree_vertices, current)){
-	  cout << "Removing: " << current << endl;
-	  remove_vertex(*i, subgraph);
-
-	}
-        //clear_vertex ( *i, g );
-	//remove_vertex(*i, subgraph);
-    }
     
-    dynamic_properties dp2;
-    dp2.property ( "node_id", get ( vertex_name, g ) );
-    std::cout<< "Graph: " << WriteGraphToDotString(subgraph, dp2);
-
-    /*
-    std::cout<< " Constructing subgraph " <<std::endl;
-    while ( current_depth < max_depth ) {
-        std::vector<TreeVertex>* next_children_list;
-        std::cout<<"Size: "<<current_children_list->size() <<std::endl;
-        for ( std::vector<TreeVertex>::iterator it = current_children_list->begin(); it != current_children_list->end(); ++it ) {
-                subtree_vertices.push_back ( ( int ) ( *it ).GetId() );
-                std::cout<< ( *it ).GetId() <<" - Children: " << ( *it ).GetChildren()->size() <<std::endl;
-                for ( std::vector<TreeVertex>::iterator c_it = ( *it ).GetChildren()->begin(); c_it != ( *it ).GetChildren()->end(); ++c_it ) {
-                    //subtree_vertices.push_back((int)(*it).GetId());
-                std::cout<<"Pushing: "<< (*c_it).GetId() <<std::endl;
-                    next_children_list->push_back ( ( *c_it ) );
-                }
-            }
-            
-        std::cout<<"Going next level..." << current_depth <<std::endl;
-        current_depth++;
-        std::cout<<"Before: "<<current_children_list->size() <<std::endl;
-        current_children_list = next_children_list;
-        std::cout<<"After: "<<current_children_list->size() <<std::endl;
-        std::cout<<"Real: "<<next_children_list->size() <<std::endl;
-
-    }
-    */
-
-    // print members of the graph
+    //NameMap nameMap = boost::get ( boost::vertex_name, subgraph );
     BOOST_FOREACH ( int member, subtree_vertices ) {
         std::cout<<"Member: "<<member<<std::endl;
     }
+    
+    Graph subgraph;    
+    BOOST_FOREACH ( int member, subtree_vertices ) {
+        //std::cout<<"Member: "<<member<<std::endl;
+	NameMap nameMap = boost::get ( boost::vertex_name, subgraph );
+        Vertex a = add_vertex(subgraph);
+	std::stringstream int_stream;
+        int_stream << member;
+	nameMap[a] = int_stream.str();
+    }
+    
+    NameMap v_names = boost::get ( boost::vertex_name, subgraph );
+    graph_traits<Graph>::vertex_iterator s_i, s_end;
+    graph_traits<Graph>::vertex_iterator t_i, t_end;
+  
+    for ( tie ( s_i, s_end ) = vertices ( subgraph ); s_i != s_end; ++s_i ) {
+      for ( tie ( t_i, t_end ) = vertices ( subgraph ); t_i != t_end; ++t_i ){
+	int v_source = *s_i;
+	int v_target = *t_i;
+	int v_source_name = lexical_cast<int>(get(v_names, v_source));
+	int v_target_name = lexical_cast<int>(get(v_names, v_target));
+	if(EdgeExists(g, v_source_name, v_target_name) && !EdgeExists(subgraph, v_target, v_source)){
+	  add_edge(v_source, v_target, subgraph);  
+	}
+        //cout << "Node: " << v_source << " name: " << get(v_names, v_source) << endl;
+	
+      }
+        //clear_vertex ( *i, g );
+    }
+   
+    // iterator
+    std::cout<<" ------------------------------- " << std::endl;
 
-    return g;
+ 
+    
+    dynamic_properties dp2;
+    dp2.property ( "node_id", get ( vertex_name, subgraph ) );
+    std::cout<< "Graph: " << WriteGraphToDotString(subgraph, dp2);
+    
+    std::vector<Weight> distances ( boost::num_edges ( subgraph ) );
+    IndexMap indexMap = boost::get ( boost::vertex_index, subgraph );
+    NameMap nameMap = boost::get ( boost::vertex_name, subgraph );
+    std::vector<Vertex> predecessors ( boost::num_vertices ( subgraph ) );
+    PredecessorMap predecessorMap ( &predecessors[0], indexMap );
+    DistanceMap distanceMap ( &distances[0], indexMap );
+    
+    //std::cout<<"Properties.."<<std::endl;
+    //nameMap[b] = "abc";
+    //PrintGraphProperties(subgraph, nameMap, distanceMap);
+
+    return subgraph;
 }
+
+bool GraphOperations::EdgeExists(Graph g, int member, int submember){
+    graph_traits<Graph>::edge_iterator ei, ee;
+    for ( tie ( ei, ee ) = edges ( g ); ei != ee; ++ei ) {
+	int v_source = source(*ei, g);
+	int v_target = target(*ei, g);
+	if(v_source == member && v_target == submember){
+	  return true;
+	}
+    }
+    return false;
+}
+
 
 bool GraphOperations::IsIn(std::vector<int> elements, int element){
   BOOST_FOREACH(int current, elements){
     if(current == element){
+      std::cout<<"Found: " << current << std::endl;
       return true;
     }
   }
@@ -585,8 +538,6 @@ std::string GraphOperations::CreateTree ( std::string text )
             }
         }
     }
-
-
 
     dynamic_properties dp2;
     dp2.property ( "node_id", get ( vertex_name, tree ) );
