@@ -107,6 +107,8 @@ namespace graph_buzz{
 	private:
 		std::vector< std::pair<int, float> > GetCentralities(Graph& g, NameMap& nameMap, IndexMap& indexMap);
 		std::vector<TreeVertex*> zipit(std::vector<TreeVertex*> next_level_nodes, std::vector<TreeVertex>* children, int depth);
+		Graph GetSubgraph(Graph g, TreeVertex* branch, int max_depth);
+		bool IsIn(std::vector<int> elements, int element);
 	};
 }
 
