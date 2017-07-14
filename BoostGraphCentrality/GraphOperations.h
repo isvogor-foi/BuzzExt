@@ -63,54 +63,56 @@ typedef ClosenessProperty::map_type ClosenessMap;
 using namespace boost;
 
 
-namespace graph_buzz{
+namespace graph_buzz
+{
 
-	struct membuf : std::streambuf
-	{
-		membuf(char* begin, char* end) {
-			this->setg(begin, begin, end);
-		}
-	};
+struct membuf : std::streambuf {
+    membuf ( char* begin, char* end ) {
+        this->setg ( begin, begin, end );
+    }
+};
 
-	class GraphOperations {
-	public:
-		class TreeVertex {
-		private:
-			int _depth;
-			Vertex _m;
-			Vertex _m_parent;
-			std::vector<TreeVertex>* _children;
+class GraphOperations
+{
+public:
+    class TreeVertex
+    {
+    private:
+        int _depth;
+        Vertex _m;
+        Vertex _m_parent;
+        std::vector<TreeVertex>* _children;
 
-		public:
-			TreeVertex(Vertex id, int depth);
-			void SetParent(Vertex parent);
-			void SetChild(TreeVertex* child);
-			std::vector<TreeVertex>* GetChildren();
-			Vertex GetParent();
-			Vertex GetId();
-		};
+    public:
+        TreeVertex ( Vertex id, int depth );
+        void SetParent ( Vertex parent );
+        void SetChild ( TreeVertex* child );
+        std::vector<TreeVertex>* GetChildren();
+        Vertex GetParent();
+        Vertex GetId();
+    };
 
-	public:
-		void WriteGraphToFile(const Graph& g, const std::string& filename);
-		std::string WriteGraphToString(const Graph& g, dynamic_properties& dp);
-		std::string WriteGraphToDotString(const Graph& g, dynamic_properties& dp);
-		void OpenFromXML(Graph& g, dynamic_properties& dp, const std::string& filename);
-		void OpenFromString(Graph& g, dynamic_properties& dp, char buffer []);
-		void SetNames(Graph& g, NameMap& nameMap);
-		void SetWeights(Graph& g, DistanceMap& distanceMap, float weight);
-		void PrintGraphProperties(Graph& g, NameMap& nameMap, DistanceMap& distanceMap);
-		void RemoveEdges(Graph& g);
-		Vertex GetFreeNeighbor(Graph& g, Vertex vertex, std::vector<Vertex> taken);
-		std::string CreateTree(std::string text);
-		std::string CreateBalancedForest(std::string text);
-		std::string SayHello();
-	private:
-		std::vector< std::pair<int, float> > GetCentralities(Graph& g, NameMap& nameMap, IndexMap& indexMap);
-		std::vector<TreeVertex*> zipit(std::vector<TreeVertex*> next_level_nodes, std::vector<TreeVertex>* children, int depth);
-		Graph GetSubgraph(Graph g, TreeVertex* branch, int max_depth);
-		bool IsIn(std::vector<int> elements, int element);
-		bool EdgeExists(Graph g, int member, int submember);
-	};
+public:
+    void WriteGraphToFile ( const Graph& g, const std::string& filename );
+    std::string WriteGraphToString ( const Graph& g, dynamic_properties& dp );
+    std::string WriteGraphToDotString ( const Graph& g, dynamic_properties& dp );
+    void OpenFromXML ( Graph& g, dynamic_properties& dp, const std::string& filename );
+    void OpenFromString ( Graph& g, dynamic_properties& dp, char buffer [] );
+    void SetNames ( Graph& g, NameMap& nameMap );
+    void SetWeights ( Graph& g, DistanceMap& distanceMap, float weight );
+    void PrintGraphProperties ( Graph& g, NameMap& nameMap, DistanceMap& distanceMap );
+    void RemoveEdges ( Graph& g );
+    Vertex GetFreeNeighbor ( Graph& g, Vertex vertex, std::vector<Vertex> taken );
+    std::string CreateTree ( std::string text );
+    std::string CreateBalancedForest ( std::string text, int num_partitionss );
+private:
+    std::vector< std::pair<int, float> > GetCentralities ( Graph& g, NameMap& nameMap, IndexMap& indexMap );
+    std::vector<TreeVertex*> zipit ( std::vector<TreeVertex*> next_level_nodes, std::vector<TreeVertex>* children, int depth );
+    Graph ExtractSubgraph ( Graph g, TreeVertex* branch, int max_depth );
+    bool IsIn ( std::vector<int> elements, int element );
+    bool EdgeExists ( Graph g, int member, int submember );
+    Graph ConstructSubgraph ( Graph g, std::vector<int> subtree_vertices );
+};
 }
 
 

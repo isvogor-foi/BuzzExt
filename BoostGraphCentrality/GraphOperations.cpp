@@ -53,9 +53,9 @@ Vertex GraphOperations::TreeVertex::GetId()
     return _m;
 }
 
-/*******************************************************
- *  Graph operations
- */
+/*********************************************************************
+***** File related operations  
+**********************************************************************/
 
 void GraphOperations::WriteGraphToFile ( const Graph& g, const std::string& filename )
 {
@@ -122,6 +122,10 @@ void GraphOperations::SetNames ( Graph& g, NameMap& nameMap )
     }
 }
 
+/*********************************************************************
+***** Graph properties  
+**********************************************************************/
+
 void GraphOperations::SetWeights ( Graph& g, DistanceMap& distanceMap, float weight )
 {
     // sets the weight
@@ -147,11 +151,6 @@ void GraphOperations::RemoveEdges ( Graph &g )
 
 void GraphOperations::PrintGraphProperties ( Graph& g, NameMap& nameMap, DistanceMap& distanceMap )
 {
-    //graph_traits<Graph>::vertex_iterator i, end;
-    //for(tie(i, end) = vertices(g); i != end; ++i) {
-    //	cout << "Name: " << get(nameMap, *i) << endl;
-    //}
-
     for ( int i = 0; i < num_vertices ( g ); i++ ) {
         cout << "Vertex: " << nameMap[i] << endl;
     }
@@ -159,46 +158,8 @@ void GraphOperations::PrintGraphProperties ( Graph& g, NameMap& nameMap, Distanc
     for ( int i = 0; i < num_edges ( g ); i++ ) {
         cout << "Weight: " << distanceMap[i] << endl;
     }
-
-    /*
-    boost::property_map <Graph, boost::edge_weight_t >::type EdgeWeightMap = get(boost::edge_weight, g);
-    boost::graph_traits< Graph >::edge_iterator e_it, e_end;
-    for(tie(e_it, e_end) = boost::edges(g); e_it != e_end; ++e_it)
-    {
-      std::cout<<"Weight: " << EdgeWeightMap[*e_it] << std::endl;
-    }
-    */
 }
-
-Vertex GraphOperations::GetFreeNeighbor ( Graph& g, Vertex vertex, std::vector<Vertex> taken )
-{
-    /*
-    Graph::vertex_iterator vertexIt, vertexEnd;
-    tie(vertexIt, vertexEnd) = vertices(g);
-    for(; vertexIt != vertexEnd; ++vertexIt){
-    	Vertex v_current = *vertexIt;
-    	if(v_current == vertex){
-    		std::cout<<"Name: " << v_current <<std::endl;
-    	}
-    }
-    */
-
-    Graph::adjacency_iterator neighbourIt, neighbourEnd;
-    tie ( neighbourIt, neighbourEnd ) = adjacent_vertices ( vertex, g );
-    for ( ; neighbourIt != neighbourEnd; ++neighbourIt ) {
-        Vertex v_current_neighbor = *neighbourIt;
-        //std::cout<< "Neighbour: " << v_current_neighbor <<std::endl;
-        if ( std::find ( taken.begin(), taken.end(), v_current_neighbor ) == taken.end() ) {
-            //std::cout << "Found it ! " << v_current_neighbor << std::endl;
-            return v_current_neighbor;
-        }
-        //std::cout<< "Neighbour: " << v_current_neighbor <<std::endl;
-    }
-    //std::cout<< " Returning... " <<std::endl;
-    return BAD_OUTPUT;
-
-}
-
+// pair vertice and value
 std::vector< std::pair<int, float> > GraphOperations::GetCentralities ( Graph& g, NameMap& nameMap, IndexMap& indexMap )
 {
     DistanceMatrix dsts ( num_vertices ( g ) );
@@ -221,7 +182,156 @@ std::vector< std::pair<int, float> > GraphOperations::GetCentralities ( Graph& g
     return centralities;
 }
 
-std::string GraphOperations::CreateBalancedForest ( std::string text )
+/*********************************************************************
+***** Graph related opreations 
+**********************************************************************/
+
+Vertex GraphOperations::GetFreeNeighbor ( Graph& g, Vertex vertex, std::vector<Vertex> taken )
+{
+    // loop through neighbours and extract one of the neigbours not in the taken list
+    Graph::adjacency_iterator neighbourIt, neighbourEnd;
+    tie ( neighbourIt, neighbourEnd ) = adjacent_vertices ( vertex, g );
+    
+    for ( ; neighbourIt != neighbourEnd; ++neighbourIt ) {
+        Vertex v_current_neighbor = *neighbourIt;
+	if ( std::find ( taken.begin(), taken.end(), v_current_neighbor ) == taken.end() ) {
+            return v_current_neighbor;
+        }
+    }
+    return BAD_OUTPUT;
+}
+
+Graph GraphOperations::ConstructSubgraph ( Graph g, std::vector<int> subtree_vertices )
+{
+    Graph subgraph;
+    BOOST_FOREACH ( int member, subtree_vertices ) {
+        //std::cout<<"Member: "<<member<<std::endl;
+        NameMap nameMap = boost::get ( boost::vertex_name, subgraph );
+        Vertex a = add_vertex ( subgraph );
+        std::stringstream int_stream;
+        int_stream << member;
+        nameMap[a] = int_stream.str();
+    }
+
+    NameMap v_names = boost::get ( boost::vertex_name, subgraph );
+    graph_traits<Graph>::vertex_iterator s_i, s_end;
+    graph_traits<Graph>::vertex_iterator t_i, t_end;
+
+    for ( tie ( s_i, s_end ) = vertices ( subgraph ); s_i != s_end; ++s_i ) {
+        for ( tie ( t_i, t_end ) = vertices ( subgraph ); t_i != t_end; ++t_i ) {
+            int v_source = *s_i;
+            int v_target = *t_i;
+            int v_source_name = lexical_cast<int> ( get ( v_names, v_source ) );
+            int v_target_name = lexical_cast<int> ( get ( v_names, v_target ) );
+            if ( EdgeExists ( g, v_source_name, v_target_name ) && !EdgeExists ( subgraph, v_target, v_source ) ) {
+                add_edge ( v_source, v_target, subgraph );
+            }
+        }
+    }
+    return subgraph;
+}
+
+bool GraphOperations::EdgeExists ( Graph g, int member, int submember )
+{
+    graph_traits<Graph>::edge_iterator ei, ee;
+    for ( tie ( ei, ee ) = edges ( g ); ei != ee; ++ei ) {
+        int v_source = source ( *ei, g );
+        int v_target = target ( *ei, g );
+        if ( v_source == member && v_target == submember ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool GraphOperations::IsIn ( std::vector<int> elements, int element )
+{
+    BOOST_FOREACH ( int current, elements ) {
+        if ( current == element ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+std::vector<GraphOperations::TreeVertex*> GraphOperations::zipit ( std::vector<TreeVertex*> next_level_nodes, std::vector<TreeVertex>* children, int depth )
+{
+    std::vector<TreeVertex*> children_list;
+    std::vector<TreeVertex*> zipped_list;
+    for ( std::vector<TreeVertex>::iterator it = children->begin(); it != children->end(); ++it ) {
+        //children_list.push_back ( new TreeVertex ( ( *it ).GetId(), depth ) );
+        children_list.push_back ( & ( *it ) );
+
+    }
+    int longer_list = ( ( next_level_nodes.size() < children_list.size() ) ? next_level_nodes.size() : children_list.size() );
+    //std::cout<<"Main: " << next_level_nodes.size() << "Children" << children_list.size() <<std::endl;
+    //std::cout<<"Longer: " << longer_list << std::endl;
+
+    std::vector<TreeVertex*>::iterator nln_iterator = next_level_nodes.begin();
+    std::vector<TreeVertex*>::iterator cld_iterator = children_list.begin();
+
+    while ( nln_iterator != next_level_nodes.end() || cld_iterator != children_list.end() ) {
+        if ( nln_iterator != next_level_nodes.end() ) {
+            //std::cout << "Added " << (*nln_iterator)->GetId() << std::endl;
+            //zipped_list.push_back ( new TreeVertex ( ( *nln_iterator )->GetId(), depth ) );
+            zipped_list.push_back ( ( *nln_iterator ) );
+            ++nln_iterator;
+        }
+        if ( cld_iterator != children_list.end() ) {
+            //std::cout << "Added(2) " << (*cld_iterator)->GetId() << std::endl;
+            //zipped_list.push_back ( new TreeVertex ( ( *cld_iterator )->GetId(), depth ) );
+            zipped_list.push_back ( ( *cld_iterator ) );
+            ++cld_iterator;
+        }
+    }
+/*
+    std::cout << "Returning: " << zipped_list.size() << std::endl;
+    BOOST_FOREACH ( TreeVertex* current_vertex, zipped_list ) {
+        std::cout<<"Current: " << current_vertex->GetId() << " ";
+    }
+*/
+    //delete children_list;
+    return zipped_list;
+
+}
+
+Graph GraphOperations::ExtractSubgraph ( Graph g, TreeVertex* branch, int max_depth )
+{
+    // write the children in the list
+    std::vector<TreeVertex*> current_children_list;
+    for ( std::vector<TreeVertex>::iterator it = branch->GetChildren()->begin(); it != branch->GetChildren()->end(); ++it ) {
+        current_children_list.push_back ( & ( *it ) );
+    }
+
+    std::vector<int> subtree_vertices;
+    subtree_vertices.push_back ( ( int ) branch->GetId() );
+    int current_depth = 0;
+
+    // find all chilldren and build a list
+    while ( current_depth < max_depth ) {
+        std::vector<TreeVertex*> next_children_list;
+        for ( std::vector<TreeVertex*>::iterator cc_i = current_children_list.begin(); cc_i != current_children_list.end(); ++cc_i ) {
+            subtree_vertices.push_back ( ( int ) ( *cc_i )->GetId() );
+            std::vector<TreeVertex>* current_childrens_children = ( *cc_i )->GetChildren();
+            for ( std::vector<TreeVertex>::iterator c_i = current_childrens_children->begin(); c_i != current_childrens_children->end(); ++c_i ) {
+                next_children_list.push_back ( & ( *c_i ) );
+            }
+        }
+        current_depth++;
+        current_children_list = next_children_list;
+    }
+
+    Graph subgraph = ConstructSubgraph ( g, subtree_vertices );
+    return subgraph;
+}
+
+/*********************************************************************
+***** Tree related opreations 
+**********************************************************************/
+
+std::string GraphOperations::CreateBalancedForest ( std::string text, int num_partitions)
 {
     Graph g;
     dynamic_properties dp;
@@ -237,7 +347,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text )
     OpenFromString ( g, dp, graph_xml );
     //OpenFromXML(g, dp, "../samples/graph-li.xml");
     //OpenFromXML(g, dp, "../samples/temp.xml");
-    
+
     //---
     // Create data for Dijkstra
     std::vector<Vertex> predecessors ( boost::num_vertices ( g ) ); 	// To store parents
@@ -249,35 +359,55 @@ std::string GraphOperations::CreateBalancedForest ( std::string text )
     PredecessorMap predecessorMap ( &predecessors[0], indexMap );
     DistanceMap distanceMap ( &distances[0], indexMap );
 
-    // set names and weights
-    //SetNames(g, nameMap);
-    //dynamic_properties dp2;
     SetWeights ( g, distanceMap, 1.0f );
     //PrintGraphProperties(g, nameMap, distanceMap);
-
+    
+    std::vector< std::pair<int, float> > centralities = GetCentralities ( g, nameMap, indexMap );
+    
+    if(centralities.size() < num_partitions){
+      std::cout<<"You know... the number of partitions is bigger than you have vertices! (HELLOO??ERROR!!!)" <<std::endl;
+      return NULL;
+    }
+    
     std::vector<TreeVertex*> subtrees;
     std::vector<TreeVertex*> current_level_nodes;
     std::vector<Vertex> taken_vertices;
 
+    // select least central nodes as starting point for partitioning
+    /*
+    for(int i = centralities.size() - 1 ; i >= (centralities.size() - num_partitions); i--){
+      std::cout<<i<<". Least central node: " << centralities[i].first << ", " << centralities[i].second <<std::endl;
+          subtrees.push_back ( new TreeVertex ( centralities[i].first, 0 ) );
+	      taken_vertices.push_back ( centralities[i].first );
+    }
+    */
+    
+    // select most central nodes as starting point for partitioning
+    for(int i = 0 ; i < num_partitions; i++){
+      std::cout<<i<<". Least central node: " << centralities[i].first << ", " << centralities[i].second <<std::endl;
+          subtrees.push_back ( new TreeVertex ( centralities[i].first, 0 ) );
+	      taken_vertices.push_back ( centralities[i].first );
+    }
+     
+   /*
     subtrees.push_back ( new TreeVertex ( 7, 0 ) );
     subtrees.push_back ( new TreeVertex ( 3, 0 ) );
-    //subtree.push_back(new TreeVertex(8, 0));
-
     taken_vertices.push_back ( 7 );
     taken_vertices.push_back ( 3 );
+    */
     //taken_vertices.push_back(8);
 
-    BOOST_FOREACH(TreeVertex* branch, subtrees)
-      current_level_nodes.push_back(branch);
+    BOOST_FOREACH ( TreeVertex* branch, subtrees )
+    current_level_nodes.push_back ( branch );
 
 
     bool increase_depth = false;
     int d = 0;
     int depth = 5;
 
+    // TODO: IDEA, maybe on limit the number of children for each node?
     while ( d < depth ) {
         // check to move to next depth level
-	std::cout << subtrees[0]->GetId() << " TEST: " << subtrees[0]->GetChildren()->size() << std::endl;
         if ( increase_depth ) {
             std::vector<TreeVertex*> next_level_nodes;
             BOOST_FOREACH ( TreeVertex* current_vertex, current_level_nodes ) {
@@ -293,7 +423,6 @@ std::string GraphOperations::CreateBalancedForest ( std::string text )
         // add children non-greedy
         int empty_set_counter = current_level_nodes.size();
         BOOST_FOREACH ( TreeVertex* current_vertex, current_level_nodes ) {
-            std::cout<< "Hello: " << current_vertex->GetId() << std::endl;
             Vertex neigbour = GetFreeNeighbor ( g, vertex ( current_vertex->GetId(), g ), taken_vertices );
             if ( neigbour != BAD_OUTPUT ) {
                 taken_vertices.push_back ( neigbour );
@@ -309,182 +438,34 @@ std::string GraphOperations::CreateBalancedForest ( std::string text )
                 }
             }
         }
-        
-        std::cout<<"Level: " << d << std::endl;
     }
 
 
-    // printout
+    // For each tree, print it
+    std::vector<Graph> partitions;
     BOOST_FOREACH ( TreeVertex* current_vertex, subtrees ) {
-      GetSubgraph(g, current_vertex, depth);
+	Graph partition = ExtractSubgraph ( g, current_vertex, depth );
+        partitions.push_back(partition);
+	
+	// print 
+	dynamic_properties dp;
+	dp.property ( "node_id", get ( vertex_name, partition ) );
+	std::cout<<"Partition: " << WriteGraphToDotString(partition, dp) <<std::endl;;
     }
 
     // just print out
-    
+
 
     dynamic_properties dp2;
-    dp2.property ( "node_id", get ( vertex_name, g ) );
-    return WriteGraphToString ( g, dp2 );
-}
-
-Graph GraphOperations::GetSubgraph ( Graph g, TreeVertex* branch, int max_depth )
-{
-    //std::cout<< branch->GetId() << " Children: " << branch->GetChildren()->size() << std::endl;
-    // write the children in the list 
-    std::vector<TreeVertex*> current_children_list;
-    for ( std::vector<TreeVertex>::iterator it = branch->GetChildren()->begin(); it != branch->GetChildren()->end(); ++it ) {
-      current_children_list.push_back(&(*it));
-    }
-    
-    std::vector<int> subtree_vertices;
-    subtree_vertices.push_back ( ( int ) branch->GetId() );
-    int current_depth = 0;
-
-    // find all chilldren and build a list 
-    while(current_depth < max_depth)
-    {
-      std::vector<TreeVertex*> next_children_list;
-      for(std::vector<TreeVertex*>::iterator cc_i = current_children_list.begin(); cc_i != current_children_list.end(); ++cc_i){
-	subtree_vertices.push_back((int)(*cc_i)->GetId());
-	std::vector<TreeVertex>* current_childrens_children = (*cc_i)->GetChildren();
-	for(std::vector<TreeVertex>::iterator c_i = current_childrens_children->begin(); c_i != current_childrens_children->end(); ++c_i){
-	  next_children_list.push_back(&(*c_i));
-	}
-
-      }
-      current_depth++;
-      current_children_list = next_children_list;
-    }
-    
-    //NameMap nameMap = boost::get ( boost::vertex_name, subgraph );
-    BOOST_FOREACH ( int member, subtree_vertices ) {
-        std::cout<<"Member: "<<member<<std::endl;
-    }
-    
-    Graph subgraph;    
-    BOOST_FOREACH ( int member, subtree_vertices ) {
-        //std::cout<<"Member: "<<member<<std::endl;
-	NameMap nameMap = boost::get ( boost::vertex_name, subgraph );
-        Vertex a = add_vertex(subgraph);
-	std::stringstream int_stream;
-        int_stream << member;
-	nameMap[a] = int_stream.str();
-    }
-    
-    NameMap v_names = boost::get ( boost::vertex_name, subgraph );
-    graph_traits<Graph>::vertex_iterator s_i, s_end;
-    graph_traits<Graph>::vertex_iterator t_i, t_end;
-  
-    for ( tie ( s_i, s_end ) = vertices ( subgraph ); s_i != s_end; ++s_i ) {
-      for ( tie ( t_i, t_end ) = vertices ( subgraph ); t_i != t_end; ++t_i ){
-	int v_source = *s_i;
-	int v_target = *t_i;
-	int v_source_name = lexical_cast<int>(get(v_names, v_source));
-	int v_target_name = lexical_cast<int>(get(v_names, v_target));
-	if(EdgeExists(g, v_source_name, v_target_name) && !EdgeExists(subgraph, v_target, v_source)){
-	  add_edge(v_source, v_target, subgraph);  
-	}
-        //cout << "Node: " << v_source << " name: " << get(v_names, v_source) << endl;
-	
-      }
-        //clear_vertex ( *i, g );
-    }
-   
-    // iterator
-    std::cout<<" ------------------------------- " << std::endl;
-
- 
-    
-    dynamic_properties dp2;
-    dp2.property ( "node_id", get ( vertex_name, subgraph ) );
-    std::cout<< "Graph: " << WriteGraphToDotString(subgraph, dp2);
-    
-    std::vector<Weight> distances ( boost::num_edges ( subgraph ) );
-    IndexMap indexMap = boost::get ( boost::vertex_index, subgraph );
-    NameMap nameMap = boost::get ( boost::vertex_name, subgraph );
-    std::vector<Vertex> predecessors ( boost::num_vertices ( subgraph ) );
-    PredecessorMap predecessorMap ( &predecessors[0], indexMap );
-    DistanceMap distanceMap ( &distances[0], indexMap );
-    
-    //std::cout<<"Properties.."<<std::endl;
-    //nameMap[b] = "abc";
-    //PrintGraphProperties(subgraph, nameMap, distanceMap);
-
-    return subgraph;
-}
-
-bool GraphOperations::EdgeExists(Graph g, int member, int submember){
-    graph_traits<Graph>::edge_iterator ei, ee;
-    for ( tie ( ei, ee ) = edges ( g ); ei != ee; ++ei ) {
-	int v_source = source(*ei, g);
-	int v_target = target(*ei, g);
-	if(v_source == member && v_target == submember){
-	  return true;
-	}
-    }
-    return false;
-}
-
-
-bool GraphOperations::IsIn(std::vector<int> elements, int element){
-  BOOST_FOREACH(int current, elements){
-    if(current == element){
-      std::cout<<"Found: " << current << std::endl;
-      return true;
-    }
-  }
-  return false;
-}
-
-
-std::vector<GraphOperations::TreeVertex*> GraphOperations::zipit ( std::vector<TreeVertex*> next_level_nodes, std::vector<TreeVertex>* children, int depth )
-{
-    std::vector<TreeVertex*> children_list;
-    std::vector<TreeVertex*> zipped_list;
-    for ( std::vector<TreeVertex>::iterator it = children->begin(); it != children->end(); ++it ) {
-        //children_list.push_back ( new TreeVertex ( ( *it ).GetId(), depth ) );
-	children_list.push_back(&(*it));
-      
-    }
-    int longer_list = ( ( next_level_nodes.size() < children_list.size() ) ? next_level_nodes.size() : children_list.size() );
-    //std::cout<<"Main: " << next_level_nodes.size() << "Children" << children_list.size() <<std::endl;
-    //std::cout<<"Longer: " << longer_list << std::endl;
-
-    std::vector<TreeVertex*>::iterator nln_iterator = next_level_nodes.begin();
-    std::vector<TreeVertex*>::iterator cld_iterator = children_list.begin();
-
-    while ( nln_iterator != next_level_nodes.end() || cld_iterator != children_list.end() ) {
-        if ( nln_iterator != next_level_nodes.end() ) {
-            //std::cout << "Added " << (*nln_iterator)->GetId() << std::endl;
-            //zipped_list.push_back ( new TreeVertex ( ( *nln_iterator )->GetId(), depth ) );
-	  zipped_list.push_back((*nln_iterator));
-            ++nln_iterator;
-        }
-        if ( cld_iterator != children_list.end() ) {
-            //std::cout << "Added(2) " << (*cld_iterator)->GetId() << std::endl;
-            //zipped_list.push_back ( new TreeVertex ( ( *cld_iterator )->GetId(), depth ) );
-	    zipped_list.push_back((*cld_iterator));
-            ++cld_iterator;
-        }
-    }
-
-    std::cout << "Returning: " << zipped_list.size() << std::endl;
-    BOOST_FOREACH ( TreeVertex* current_vertex, zipped_list ) {
-        std::cout<<"Current: " << current_vertex->GetId() << " ";
-    }
-
-    //delete children_list;
-    return zipped_list;
-
-}
-
+    dp2.property ( "node_id", get ( vertex_name, partitions[0] ) );
+    return WriteGraphToString ( partitions[0], dp2 );
+} 	
 
 std::string GraphOperations::CreateTree ( std::string text )
 {
 
     Graph g;
     dynamic_properties dp;
-
 
     const std::string vn = "vertex_name";
     dp.property ( vn,get ( vertex_name,g ) );
@@ -545,9 +526,3 @@ std::string GraphOperations::CreateTree ( std::string text )
     return WriteGraphToString ( g, dp2 );
     //return text;
 }
-
-std::string GraphOperations::SayHello()
-{
-    return "Hello";
-}
-
