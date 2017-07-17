@@ -27,7 +27,7 @@ int main ( int argc, char *argv[] )
 
 
     GraphOperations go;
-    std::string result = go.CreateBalancedForest ( s, 3 );
+    std::string result = go.CreateBalancedForest ( s, 2 );
     std::cout << "Result (T): " << result << std::endl;
     return 0;
 

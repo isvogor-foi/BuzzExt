@@ -46,6 +46,7 @@ public:
    void SetWheels(Real f_left_speed, Real f_right_speed);
    void SetWheelSpeedsFromVector(const CVector2& c_heading);
    std::string GenerateTree(std::string graphml);
+   std::string CreateBalancedForest(std::string graphml, int num_partitions);
    std::string m_GeneratedTree;
 
 private:

@@ -115,6 +115,7 @@ private:
     std::vector<int> NonNeigbourVertices(Graph g, std::vector< std::pair<int, float> > centralities);
     std::vector<int> SortedByDegree(Graph g, std::vector<int> existing_candidates);
     bool AreNeigbours(Graph g, int starting_node, int ending_node);
+    Graph ConstructTreeFromGraph(Graph g);
 };
 }
 

@@ -54,7 +54,7 @@ Vertex GraphOperations::TreeVertex::GetId()
 }
 
 /*********************************************************************
-***** File related operations  
+***** File related operations
 **********************************************************************/
 
 void GraphOperations::WriteGraphToFile ( const Graph& g, const std::string& filename )
@@ -123,7 +123,7 @@ void GraphOperations::SetNames ( Graph& g, NameMap& nameMap )
 }
 
 /*********************************************************************
-***** Graph properties  
+***** Graph properties
 **********************************************************************/
 
 void GraphOperations::SetWeights ( Graph& g, DistanceMap& distanceMap, float weight )
@@ -183,7 +183,7 @@ std::vector< std::pair<int, float> > GraphOperations::GetCentralities ( Graph& g
 }
 
 /*********************************************************************
-***** Graph related opreations 
+***** Graph related opreations
 **********************************************************************/
 
 Vertex GraphOperations::GetFreeNeighbor ( Graph& g, Vertex vertex, std::vector<Vertex> taken )
@@ -191,10 +191,10 @@ Vertex GraphOperations::GetFreeNeighbor ( Graph& g, Vertex vertex, std::vector<V
     // loop through neighbours and extract one of the neigbours not in the taken list
     Graph::adjacency_iterator neighbourIt, neighbourEnd;
     tie ( neighbourIt, neighbourEnd ) = adjacent_vertices ( vertex, g );
-    
+
     for ( ; neighbourIt != neighbourEnd; ++neighbourIt ) {
         Vertex v_current_neighbor = *neighbourIt;
-	if ( std::find ( taken.begin(), taken.end(), v_current_neighbor ) == taken.end() ) {
+        if ( std::find ( taken.begin(), taken.end(), v_current_neighbor ) == taken.end() ) {
             return v_current_neighbor;
         }
     }
@@ -286,77 +286,81 @@ std::vector<GraphOperations::TreeVertex*> GraphOperations::zipit ( std::vector<T
             ++cld_iterator;
         }
     }
-/*
-    std::cout << "Returning: " << zipped_list.size() << std::endl;
-    BOOST_FOREACH ( TreeVertex* current_vertex, zipped_list ) {
-        std::cout<<"Current: " << current_vertex->GetId() << " ";
-    }
-*/
+    /*
+        std::cout << "Returning: " << zipped_list.size() << std::endl;
+        BOOST_FOREACH ( TreeVertex* current_vertex, zipped_list ) {
+            std::cout<<"Current: " << current_vertex->GetId() << " ";
+        }
+    */
     //delete children_list;
     return zipped_list;
 
 }
 
-std::vector<int> GraphOperations::NonNeigbourVertices(Graph g, std::vector< std::pair<int, float> > centralities){
-  std::vector<int> result;
-  NameMap nameMap = boost::get ( boost::vertex_name, g );
-  
-  // reverse sort
-  std::sort ( centralities.begin(), centralities.end(), 
-	      boost::bind ( &std::pair<int, float>::second, _1 ) < 
-	      boost::bind ( &std::pair<int, float>::second, _2 ) );
-  int v_least_central = vertex ( centralities[0].first, g ); // < change
-  result.push_back(v_least_central);
-  
-  for(int node = 0; node < centralities.size(); node++) {
-    bool push_it = true;
+std::vector<int> GraphOperations::NonNeigbourVertices ( Graph g, std::vector< std::pair<int, float> > centralities )
+{
+    std::vector<int> result;
+    NameMap nameMap = boost::get ( boost::vertex_name, g );
+
+    // reverse sort
+    std::sort ( centralities.begin(), centralities.end(),
+                boost::bind ( &std::pair<int, float>::second, _1 ) <
+                boost::bind ( &std::pair<int, float>::second, _2 ) );
+    int v_least_central = vertex ( centralities[0].first, g ); // < change
+    result.push_back ( v_least_central );
+
+    for ( int node = 0; node < centralities.size(); node++ ) {
+        bool push_it = true;
+        BOOST_FOREACH ( int root, result ) {
+            if ( AreNeigbours ( g, root, centralities[node].first ) || centralities[node].first == root ) {
+                push_it = false;
+            }
+        }
+        if ( push_it ) {
+            result.push_back ( centralities[node].first );
+        }
+    }
+    /*
     BOOST_FOREACH(int root, result){
-      if(AreNeigbours(g, root, centralities[node].first) || centralities[node].first == root){
-	push_it = false;
-      }
+      std::cout<< "Candidate: " << root << std::endl;
     }
-    if(push_it){
-      result.push_back(centralities[node].first);
-    }
-  }
-  
-  BOOST_FOREACH(int root, result){
-    std::cout<< "Candidate: " << root << std::endl;
-  }
-  
-  return result;
-}
-std::vector<int> GraphOperations::SortedByDegree(Graph g, std::vector<int> existing_candidates){
-  std::vector<int> result = existing_candidates;
-  std::vector< std::pair<int, int> > degree_sorted;
-  //std::cout<<"Degree:" << degree(0, g) <<std::endl;
-  for ( int i = 0; i < num_vertices ( g ); i++ ) {
-    degree_sorted.push_back(std::make_pair(i, degree(i, g)));
-  }
-  
-  std::sort ( degree_sorted.begin(), degree_sorted.end(), 
-	      boost::bind ( &std::pair<int, int>::second, _1 ) < 
-	      boost::bind ( &std::pair<int, int>::second, _2 ) );
- 
-  //int v_least_central = vertex ( centralities[0].first, g );
-  
-  for(int candidate = 0; candidate < degree_sorted.size(); candidate++) {
-    if(!IsIn(existing_candidates, degree_sorted[candidate].first)){
-      result.push_back(degree_sorted[candidate].first);
-    }
-  }
+    */
 
-  return result;
+    return result;
+}
+std::vector<int> GraphOperations::SortedByDegree ( Graph g, std::vector<int> existing_candidates )
+{
+    std::vector<int> result = existing_candidates;
+    std::vector< std::pair<int, int> > degree_sorted;
+    //std::cout<<"Degree:" << degree(0, g) <<std::endl;
+    for ( int i = 0; i < num_vertices ( g ); i++ ) {
+        degree_sorted.push_back ( std::make_pair ( i, degree ( i, g ) ) );
+    }
+
+    std::sort ( degree_sorted.begin(), degree_sorted.end(),
+                boost::bind ( &std::pair<int, int>::second, _1 ) <
+                boost::bind ( &std::pair<int, int>::second, _2 ) );
+
+    //int v_least_central = vertex ( centralities[0].first, g );
+
+    for ( int candidate = 0; candidate < degree_sorted.size(); candidate++ ) {
+        if ( !IsIn ( existing_candidates, degree_sorted[candidate].first ) ) {
+            result.push_back ( degree_sorted[candidate].first );
+        }
+    }
+
+    return result;
 }
 
-bool GraphOperations::AreNeigbours(Graph g, int starting_node, int ending_node){
+bool GraphOperations::AreNeigbours ( Graph g, int starting_node, int ending_node )
+{
     Graph::adjacency_iterator neighbourIt, neighbourEnd;
     tie ( neighbourIt, neighbourEnd ) = adjacent_vertices ( starting_node, g );
     for ( ; neighbourIt != neighbourEnd; ++neighbourIt ) {
         int v_current_neighbor = *neighbourIt;
-	if (v_current_neighbor == ending_node){
-	  return true;
-	}
+        if ( v_current_neighbor == ending_node ) {
+            return true;
+        }
     }
     return false;
 }
@@ -392,10 +396,10 @@ Graph GraphOperations::ExtractSubgraph ( Graph g, TreeVertex* branch, int max_de
 }
 
 /*********************************************************************
-***** Tree related opreations 
+***** Tree related opreations
 **********************************************************************/
 
-std::string GraphOperations::CreateBalancedForest ( std::string text, int num_partitions)
+std::string GraphOperations::CreateBalancedForest ( std::string text, int num_partitions )
 {
     Graph g;
     dynamic_properties dp;
@@ -425,16 +429,16 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 
     SetWeights ( g, distanceMap, 1.0f );
     //PrintGraphProperties(g, nameMap, distanceMap);
-    
+
     std::vector< std::pair<int, float> > centralities = GetCentralities ( g, nameMap, indexMap );
-    
-    
-    
-    if(centralities.size() < num_partitions){
-      std::cout<<"You know... the number of partitions is bigger than you have vertices! (HELLOO??ERROR!!!)" <<std::endl;
-      return NULL;
+
+
+
+    if ( centralities.size() < num_partitions ) {
+        std::cout<<"You know... the number of partitions is bigger than you have vertices! (HELLOO??ERROR!!!)" <<std::endl;
+        return NULL;
     }
-    
+
     std::vector<TreeVertex*> subtrees;
     std::vector<TreeVertex*> current_level_nodes;
     std::vector<Vertex> taken_vertices;
@@ -447,33 +451,42 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
       taken_vertices.push_back ( centralities[i].first );
     }
     */
-    
+
     // select most central nodes as starting point for partitioning
     
     for(int i = 0 ; i < centralities.size(); i++){
       std::cout<<i<<". Most central node: " << centralities[i].first << ", " << centralities[i].second <<std::endl;
-          //subtrees.push_back ( new TreeVertex ( centralities[i].first, 0 ) );
-	  //taken_vertices.push_back ( centralities[i].first );
     }
     
+
     // TODO: from the main graph, remove duplicates?
     // ConstructSubgraph
     std::vector<int> vertex_range;
-    for(int i = 0; i < 20; i++) vertex_range.push_back(i);
-    g = ConstructSubgraph(g, vertex_range); //-- same?
-    
-    std::vector<int> candidates = NonNeigbourVertices(g, centralities);
-    candidates = SortedByDegree(g, candidates);
-    BOOST_FOREACH(int c, candidates){
-      std::cout<< "Candidates final: " << c << std::endl;
+    for ( int i = 0; i < 20; i++ ) {
+        vertex_range.push_back ( i );
     }
-   
-    subtrees.push_back ( new TreeVertex ( 7, 0 ) );
-    subtrees.push_back ( new TreeVertex ( 3, 0 ) );
-    taken_vertices.push_back ( 7 );
-    taken_vertices.push_back ( 3 );
-   
+    g = ConstructSubgraph ( g, vertex_range ); //-- same?
+
+    std::vector<int> candidates = NonNeigbourVertices ( g, centralities );
+    candidates = SortedByDegree ( g, candidates );
+
+    /*
+    BOOST_FOREACH ( int c, candidates ) {
+        std::cout<< "Candidates final: " << c << std::endl;
+    }
+    */
+
+    //subtrees.push_back ( new TreeVertex ( 7, 0 ) );
+    //subtrees.push_back ( new TreeVertex ( 3, 0 ) );
+    //taken_vertices.push_back ( 7 );
+    //taken_vertices.push_back ( 3 );
+
     //taken_vertices.push_back(8);
+
+    for ( int i = candidates.size() - 1 ; i >= ( candidates.size() - num_partitions ); i-- ) {
+        subtrees.push_back ( new TreeVertex ( candidates[i], 0 ) );
+        taken_vertices.push_back ( candidates[i] );
+    }
 
     BOOST_FOREACH ( TreeVertex* branch, subtrees )
     current_level_nodes.push_back ( branch );
@@ -481,7 +494,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 
     bool increase_depth = false;
     int d = 0;
-    int depth = 5;
+    int depth = 5; // HARDCODED !!!!
 
     // TODO: IDEA, maybe on limit the number of children for each node?
     // TODO: Maybe the candidate nodes should be at least not neighbours? or 1 distant?
@@ -508,7 +521,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
                 TreeVertex* new_child = new TreeVertex ( neigbour, d + 1 );
                 new_child->SetParent ( current_vertex->GetId() );
                 current_vertex->SetChild ( new_child );
-                cout<< current_vertex->GetId() << " takes " << new_child->GetId() << std::endl;
+                //cout<< current_vertex->GetId() << " takes " << new_child->GetId() << std::endl;
             } else {
                 empty_set_counter -= 1;
                 if ( empty_set_counter == 0 ) {
@@ -521,27 +534,27 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 
 
     // For each tree, print it
+    std::string final_output = "";
     std::vector<Graph> partitions;
     BOOST_FOREACH ( TreeVertex* current_vertex, subtrees ) {
-	Graph partition = ExtractSubgraph ( g, current_vertex, depth );
-        partitions.push_back(partition);
+        Graph partition = ExtractSubgraph ( g, current_vertex, depth );
+        partitions.push_back ( partition );
+        // print
+        dynamic_properties dp;
+        dp.property ( "node_id", get ( vertex_name, partition ) );
+	Graph tree = ConstructTreeFromGraph(partition);
 	
-	// print 
-	dynamic_properties dp;
-	dp.property ( "node_id", get ( vertex_name, partition ) );
-	std::cout<<"Partition: " << WriteGraphToDotString(partition, dp) <<std::endl;
+	final_output += WriteGraphToString ( tree, dp );
+	std::cout<< "Partition: " << final_output << std::endl;
+        std::cout<<"Partition: " << WriteGraphToDotString ( tree, dp ) <<std::endl;
     }
 
-    // just print out
-
-    // print original graph also 
-    dp.property ( "node_id", get ( vertex_name, g) );
-    std::cout<<"Partition: " << WriteGraphToDotString(g, dp) <<std::endl;
+    //dynamic_properties dp2;
+    //dp2.property ( "node_id", get ( vertex_name, partitions[0] ) );
+    //return WriteGraphToString ( partitions[0], dp2 );
     
-    dynamic_properties dp2;
-    dp2.property ( "node_id", get ( vertex_name, partitions[0] ) );
-    return WriteGraphToString ( partitions[0], dp2 );
-} 	
+    return final_output;
+}
 
 std::string GraphOperations::CreateTree ( std::string text )
 {
@@ -560,6 +573,18 @@ std::string GraphOperations::CreateTree ( std::string text )
     //OpenFromString(g, dp, a);
     OpenFromXML ( g, dp, "../samples/graph-li.xml" );
 
+    
+    Graph tree = ConstructTreeFromGraph(g);
+
+    dynamic_properties dp2;
+    dp2.property ( "node_id", get ( vertex_name, tree ) );
+    // WriteGraphToFile ( tree, "tree.dot" );
+    return WriteGraphToString ( g, dp2 );
+    //return text;
+}
+
+Graph GraphOperations::ConstructTreeFromGraph(Graph g)
+{
     // Create data for Dijkstra
     std::vector<Vertex> predecessors ( boost::num_vertices ( g ) ); 	// To store parents
     std::vector<Weight> distances ( boost::num_edges ( g ) ); 		// To store distances
@@ -574,8 +599,8 @@ std::string GraphOperations::CreateTree ( std::string text )
     //SetNames(g, nameMap);
     SetWeights ( g, distanceMap, 1.0f );
     //PrintGraphProperties(g, nameMap, distanceMap);
-
-    // floyd warshall
+    
+      // floyd warshall
     std::vector< std::pair<int, float> > centralities = GetCentralities ( g, nameMap, indexMap );
 
     // dijkstra
@@ -601,10 +626,5 @@ std::string GraphOperations::CreateTree ( std::string text )
             }
         }
     }
-
-    dynamic_properties dp2;
-    dp2.property ( "node_id", get ( vertex_name, tree ) );
-    WriteGraphToFile ( tree, "tree.dot" );
-    return WriteGraphToString ( g, dp2 );
-    //return text;
+    return tree;
 }
