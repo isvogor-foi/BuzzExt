@@ -564,14 +564,15 @@ std::string GraphOperations::CreateTree ( std::string text )
 
     const std::string vn = "vertex_name";
     dp.property ( vn,get ( vertex_name,g ) );
+    
 
     // convert string to char array
-    char *a = new char[text.size() +1];
-    a[text.size()]=0;
-    memcpy ( a,text.c_str(),text.size() );
-
-    //OpenFromString(g, dp, a);
-    OpenFromXML ( g, dp, "../samples/graph-li.xml" );
+    char *graphml = new char[text.size() +1];
+    graphml[text.size()]=0;
+    memcpy ( graphml,text.c_str(),text.size() );
+    
+    OpenFromString(g, dp, graphml);
+    //OpenFromXML ( g, dp, "../samples/graph-li.xml" );
 
     
     Graph tree = ConstructTreeFromGraph(g);
@@ -579,7 +580,7 @@ std::string GraphOperations::CreateTree ( std::string text )
     dynamic_properties dp2;
     dp2.property ( "node_id", get ( vertex_name, tree ) );
     // WriteGraphToFile ( tree, "tree.dot" );
-    return WriteGraphToString ( g, dp2 );
+    return WriteGraphToString ( tree, dp2 );
     //return text;
 }
 
