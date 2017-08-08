@@ -4,6 +4,7 @@
 #include <argos3/core/control_interface/ci_controller.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_actuator.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_actuator.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_sensor.h>
 #include <buzz/buzzvm.h>
@@ -60,6 +61,9 @@ public:
    }
 
    std::string ErrorInfo();
+
+   typedef std::map<size_t, bool> TBuzzRobots;
+   static TBuzzRobots BUZZ_ROBOTS;
 
 protected:
 
@@ -153,6 +157,8 @@ protected:
    CCI_RangeAndBearingActuator*  m_pcRABA;
    /* Pointer to the range and bearing sensor */
    CCI_RangeAndBearingSensor* m_pcRABS;
+   /* Pointer to the positioning sensor */
+   CCI_PositioningSensor* m_pcPos;
 
    /* The robot numeric id */
    UInt16 m_unRobotId;
@@ -170,5 +176,16 @@ protected:
    std::string m_strDebugMsg;
 
 };
+
+#include <argos3/core/utility/plugins/vtable.h>
+
+#define REGISTER_BUZZ_ROBOT(ROBOT_TYPE)                                 \
+   class C ## ROBOT_TYPE ## BuzzController ## Proxy {                   \
+   public:                                                              \
+   C ## ROBOT_TYPE ## BuzzController ## Proxy() {                       \
+      CBuzzController::BUZZ_ROBOTS[GetTag<ROBOT_TYPE,CEntity>()] = true; \
+   }                                                                    \
+   };                                                                   \
+   C ## ROBOT_TYPE ## BuzzController ## Proxy ROBOT_TYPE ## BuzzController ## _p;
 
 #endif

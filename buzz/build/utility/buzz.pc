@@ -1,0 +1,10 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+includedir=${prefix}/include
+libdir=${exec_prefix}/lib
+
+Name: buzz
+Description: Buzz (programming language for robot swarms)
+Version: ..-
+Cflags: -I${includedir} -Wno-unknown-pragmas 
+Libs:  -L${libdir} -lbuzz
