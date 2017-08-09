@@ -33,7 +33,7 @@ size_t writefunc(void *ptr, size_t size, size_t nmemb, struct string *s)
   return size*nmemb;
 }
  
-int main(void)
+int main(int argc, char *argv[])
 {
   CURL *curl;
   CURLcode res;
@@ -53,7 +53,7 @@ int main(void)
   curl = curl_easy_init();
   if(curl) {
   
-    curl_easy_setopt(curl, CURLOPT_URL, "127.0.0.1/tree/index.php");
+    curl_easy_setopt(curl, CURLOPT_URL, "127.0.0.1/tree/forest_call.php");
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_field);
     //curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);

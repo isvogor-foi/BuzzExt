@@ -15,6 +15,9 @@ SET(HEADERS GraphOperations.h zip.h)
 ADD_LIBRARY(graph_operations SHARED GraphOperations.cpp ${HEADERS})
 target_link_libraries(graph_operations ${Boost_LIBRARIES})
 
-ADD_EXECUTABLE(graph_test graph_test ${HEADERS})
-target_link_libraries(graph_test graph_operations ${Boost_LIBRARIES})
+ADD_EXECUTABLE(forest_call forest_call ${HEADERS})
+target_link_libraries(forest_call graph_operations ${Boost_LIBRARIES})
+
+ADD_EXECUTABLE(tree_call tree_call ${HEADERS})
+target_link_libraries(tree_call graph_operations ${Boost_LIBRARIES})
 
