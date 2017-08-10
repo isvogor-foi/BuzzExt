@@ -105,6 +105,8 @@ public:
     Vertex GetFreeNeighbor ( Graph& g, Vertex vertex, std::vector<Vertex> taken );
     std::string CreateTree ( std::string text );
     std::string CreateBalancedForest ( std::string text, int num_partitionss );
+    std::string GetShortestPath(std::string text, int target, int source);
+
 private:
     std::vector< std::pair<int, float> > GetCentralities ( Graph& g, NameMap& nameMap, IndexMap& indexMap );
     std::vector<TreeVertex*> zipit ( std::vector<TreeVertex*> next_level_nodes, std::vector<TreeVertex>* children, int depth );

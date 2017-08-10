@@ -21,3 +21,9 @@ target_link_libraries(forest_call graph_operations ${Boost_LIBRARIES})
 ADD_EXECUTABLE(tree_call tree_call ${HEADERS})
 target_link_libraries(tree_call graph_operations ${Boost_LIBRARIES})
 
+ADD_EXECUTABLE(path_call path_call ${HEADERS})
+target_link_libraries(path_call graph_operations ${Boost_LIBRARIES})
+
+ADD_EXECUTABLE(graph_test graph_test ${HEADERS})
+target_link_libraries(graph_test graph_operations ${Boost_LIBRARIES})
+

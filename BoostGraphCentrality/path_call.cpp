@@ -27,13 +27,12 @@ int main ( int argc, char *argv[] )
 
     //cout<<"ARG: " << argv[1];
     std::string s = argv[1];
-    int n = atoi(argv[2]);
-    
+
     std::cout << "Received (boost): " << s << endl;
     GraphOperations go;
-    std::string result = go.CreateBalancedForest (s , n);
+    std::string result = go.GetShortestPath (s , 2, 3);
     std::cout << result << std::endl;
-    
+
     return 0;
 
 }

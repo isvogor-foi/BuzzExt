@@ -627,5 +627,68 @@ Graph GraphOperations::ConstructTreeFromGraph(Graph g)
             }
         }
     }
+
     return tree;
 }
+
+
+std::string GraphOperations::GetShortestPath(std::string text, int source, int destination)
+{
+    Graph g;
+    dynamic_properties dp;
+
+    const std::string vn = "vertex_name";
+    dp.property ( vn,get ( vertex_name,g ) );
+
+    // convert string to char array
+    char *graph_xml = new char[text.size() +1];
+    graph_xml[text.size()]=0;
+    memcpy ( graph_xml,text.c_str(),text.size() );
+
+    OpenFromString ( g, dp, graph_xml );
+
+    // Create data for Dijkstra
+    std::vector<Vertex> predecessors ( boost::num_vertices ( g ) ); 	// To store parents
+    std::vector<Weight> distances ( boost::num_edges ( g ) ); 		// To store distances
+
+    IndexMap indexMap = boost::get ( boost::vertex_index, g );
+    NameMap nameMap = boost::get ( boost::vertex_name, g );
+
+    PredecessorMap predecessorMap ( &predecessors[0], indexMap );
+    DistanceMap distanceMap ( &distances[0], indexMap );
+
+    // set names and weights
+    //SetNames(g, nameMap);
+    SetWeights ( g, distanceMap, 1.0f );
+    //PrintGraphProperties(g, nameMap, distanceMap);
+
+      // floyd warshall
+    //std::vector< std::pair<int, float> > centralities = GetCentralities ( g, nameMap, indexMap );
+
+    // dijkstra
+    Vertex v0 = vertex ( destination , g ); // < change
+    boost::dijkstra_shortest_paths ( g, v0, boost::distance_map ( distanceMap ).predecessor_map ( predecessorMap ) );
+
+    std::string shortest_path = "";
+    int path_steps = 0;
+	Vertex v3= vertex ( source, g );
+	Vertex v = v3; // We want to start at the destination and work our way back to the source
+	for ( Vertex u = predecessorMap[v];  u != v; v = u, u = predecessorMap[v] ) {
+		std::ostringstream ss;
+		ss << v;
+		shortest_path += ";" + ss.str();
+		path_steps++;
+	}
+
+	std::ostringstream ss;
+	ss << destination;
+	shortest_path += ";" + ss.str();
+	ss.str("");
+	ss.clear();
+	ss << path_steps;
+	shortest_path = ss.str() + shortest_path;
+
+    return shortest_path;
+}
+
+
