@@ -275,6 +275,35 @@ std::string CBuzzController::ErrorInfo() {
    }
 }
 
+
+/****************************************/
+/****************************************/
+
+void extract_keys(const void* key, void* data, void* params) {
+	//const char* str = buzzstrman_get(((extract_keys_t*)params)->_vm->strings, (*(buzzobj_t*)key)->s.value.str);
+	char str[16] = "";
+	sprintf(str, "%d", (*(buzzobj_t*)key)->i.value);
+	strcat(((char*)params), str);
+	strcat(((char*)params), ";");
+}
+int BuzzGetStigmergyIntKeys(buzzvm_t vm){
+	/* Get pointer to the controller */
+	   buzzvm_lload(vm, 1);
+	   buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
+	   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+	   buzzvm_gload(vm);
+
+	   uint16_t stigmergy_id = buzzvm_stack_at(vm, 2)->i.value;
+	   buzzvstig_t vs = *buzzdict_get(vm->vstigs, &stigmergy_id, buzzvstig_t);
+	   char result[1024] = "";
+
+	   buzzvstig_foreach(vs, extract_keys, result);
+	   buzzvm_pushs(vm, buzzvm_string_register(vm, result, 0));
+
+	   return buzzvm_ret1(vm);
+}
+
+
 /****************************************/
 /****************************************/
 
@@ -290,6 +319,10 @@ buzzvm_state CBuzzController::RegisterFunctions() {
    /* BuzzDebug */
    buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "debug", 1));
    buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzDebug));
+   buzzvm_gstore(m_tBuzzVM);
+   /* Get Stigmergy Table */
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "get_stigmergy_int_keys", 1));
+   buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzGetStigmergyIntKeys));
    buzzvm_gstore(m_tBuzzVM);
    return m_tBuzzVM->state;
 }
