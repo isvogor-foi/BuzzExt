@@ -277,7 +277,7 @@ static const char* buzz_error_info() {
    return msg;
 }
 
-void Register(const char *str,float f_value) {
+void Register(const char *str, float f_value) {
    buzzvm_pushs(VM, buzzvm_string_register(VM, str, 1));
    buzzvm_pushf(VM, f_value);
    buzzvm_gstore(VM);
@@ -327,9 +327,13 @@ static int buzz_register_hooks() {
    buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzStopProcessing));
    buzzvm_gstore(VM);
 
-      /* GenerateForest */
+   /* GenerateForest */
    buzzvm_pushs(VM, buzzvm_string_register(VM, "generate_forest", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzCreateBalancedForest));
+   buzzvm_gstore(VM);
+
+   buzzvm_pushs(VM, buzzvm_string_register(VM, "generate_tree", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzCreateTree));
    buzzvm_gstore(VM);
 
    return BUZZVM_STATE_READY;

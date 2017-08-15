@@ -338,7 +338,7 @@ std::vector<int> GraphOperations::SortedByDegree ( Graph g, std::vector<int> exi
     }
 
     std::sort ( degree_sorted.begin(), degree_sorted.end(),
-                boost::bind ( &std::pair<int, int>::second, _1 ) <
+                boost::bind ( &std::pair<int, int>::second, _1 ) >
                 boost::bind ( &std::pair<int, int>::second, _2 ) );
 
     //int v_least_central = vertex ( centralities[0].first, g );
@@ -399,7 +399,7 @@ Graph GraphOperations::ExtractSubgraph ( Graph g, TreeVertex* branch, int max_de
 ***** Tree related opreations
 **********************************************************************/
 
-std::string GraphOperations::CreateBalancedForest ( std::string text, int num_partitions )
+std::string GraphOperations::CreateBalancedForest ( std::string text, int num_partitions, int max_depth)
 {
     Graph g;
     dynamic_properties dp;
@@ -432,8 +432,6 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 
     std::vector< std::pair<int, float> > centralities = GetCentralities ( g, nameMap, indexMap );
 
-
-
     if ( centralities.size() < num_partitions ) {
         std::cout<<"You know... the number of partitions is bigger than you have vertices! (HELLOO??ERROR!!!)" <<std::endl;
         return NULL;
@@ -460,9 +458,9 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     
 
     // TODO: from the main graph, remove duplicates?
-    // ConstructSubgraph
+    // ConstructSubgraph ----------- whaaaaaaaaaaaaaat?
     std::vector<int> vertex_range;
-    for ( int i = 0; i < 20; i++ ) {
+    for ( int i = 0; i < num_vertices (g); i++ ) {
         vertex_range.push_back ( i );
     }
     g = ConstructSubgraph ( g, vertex_range ); //-- same?
@@ -470,31 +468,33 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     std::vector<int> candidates = NonNeigbourVertices ( g, centralities );
     candidates = SortedByDegree ( g, candidates );
 
-    /*
     BOOST_FOREACH ( int c, candidates ) {
         std::cout<< "Candidates final: " << c << std::endl;
     }
-    */
 
-    //subtrees.push_back ( new TreeVertex ( 7, 0 ) );
+
     //subtrees.push_back ( new TreeVertex ( 3, 0 ) );
-    //taken_vertices.push_back ( 7 );
+    //subtrees.push_back ( new TreeVertex ( 7, 0 ) );
+    //subtrees.push_back ( new TreeVertex ( 1, 0 ) );
     //taken_vertices.push_back ( 3 );
-
+    //taken_vertices.push_back ( 7 );
+    //taken_vertices.push_back ( 1 );
     //taken_vertices.push_back(8);
 
-    for ( int i = candidates.size() - 1 ; i >= ( candidates.size() - num_partitions ); i-- ) {
+    // old?!
+    for ( int i = 0 ; i < num_partitions; i++ ) {
         subtrees.push_back ( new TreeVertex ( candidates[i], 0 ) );
         taken_vertices.push_back ( candidates[i] );
+        cout<<"Added: " << candidates[i] << std::endl;
     }
 
     BOOST_FOREACH ( TreeVertex* branch, subtrees )
-    current_level_nodes.push_back ( branch );
+    	current_level_nodes.push_back ( branch );
 
 
     bool increase_depth = false;
     int d = 0;
-    int depth = 5; // HARDCODED !!!!
+    int depth = max_depth; // HARDCODED !!!!
 
     // TODO: IDEA, maybe on limit the number of children for each node?
     // TODO: Maybe the candidate nodes should be at least not neighbours? or 1 distant?
@@ -521,7 +521,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
                 TreeVertex* new_child = new TreeVertex ( neigbour, d + 1 );
                 new_child->SetParent ( current_vertex->GetId() );
                 current_vertex->SetChild ( new_child );
-                //cout<< current_vertex->GetId() << " takes " << new_child->GetId() << std::endl;
+                cout<< current_vertex->GetId() << " takes " << new_child->GetId() << std::endl;
             } else {
                 empty_set_counter -= 1;
                 if ( empty_set_counter == 0 ) {
@@ -545,9 +545,12 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 	Graph tree = ConstructTreeFromGraph(partition);
 	
 	final_output += WriteGraphToString ( tree, dp );
+
 	std::cout<< "Partition: " << final_output << std::endl;
-        std::cout<<"Partition: " << WriteGraphToDotString ( tree, dp ) <<std::endl;
+    std::cout<<"Partition: " << WriteGraphToDotString ( tree, dp ) <<std::endl;
+
     }
+
 
     //dynamic_properties dp2;
     //dp2.property ( "node_id", get ( vertex_name, partitions[0] ) );

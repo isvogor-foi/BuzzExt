@@ -31,7 +31,7 @@ int main ( int argc, char *argv[] )
     
     std::cout << "Received (boost): " << s << endl;
     GraphOperations go;
-    std::string result = go.CreateBalancedForest (s , n);
+    std::string result = go.CreateBalancedForest (s, n, 5);
     std::cout << result << std::endl;
     
     return 0;

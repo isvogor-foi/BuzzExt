@@ -104,7 +104,7 @@ public:
     void RemoveEdges ( Graph& g );
     Vertex GetFreeNeighbor ( Graph& g, Vertex vertex, std::vector<Vertex> taken );
     std::string CreateTree ( std::string text );
-    std::string CreateBalancedForest ( std::string text, int num_partitionss );
+    std::string CreateBalancedForest ( std::string text, int num_partitions, int max_depth);
     std::string GetShortestPath(std::string text, int target, int source);
 
 private:
