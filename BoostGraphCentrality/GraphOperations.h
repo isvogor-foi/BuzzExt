@@ -115,10 +115,12 @@ private:
     bool EdgeExists ( Graph g, int member, int submember );
     Graph ConstructSubgraph ( Graph g, std::vector<int> subtree_vertices );
     std::vector<int> NonNeigbourVertices(Graph g, std::vector< std::pair<int, float> > centralities);
-    std::vector<int> SortedByDegree(Graph g, std::vector<int> existing_candidates);
+    std::vector<int> SortedByDegree(Graph g, std::vector<int> existing_candidates, bool include_ones );
     std::vector<int> GetBorderCycle(Graph g, std::vector<int> existing_candidates);
     bool AreNeigbours(Graph g, int starting_node, int ending_node);
     Graph ConstructTreeFromGraph(Graph g);
+    int NumNeigborsWithDegree ( Graph g, int starting_node, int desired_degree );
+
 };
 }
 

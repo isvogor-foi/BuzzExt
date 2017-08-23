@@ -334,9 +334,10 @@ std::vector<int> GraphOperations::GetBorderCycle(Graph g, std::vector<int> exist
   while(chain_not_complete) {
     BOOST_FOREACH ( int vertex, existing_candidates ) {
       if(!IsIn(cycle, vertex) && AreNeigbours(g, cycle.at(cycle_size), vertex)){
-	//std::cout<<"Add? " << vertex << std::endl;
-	if(cycle_size >= 2){
-	  if(!AreNeigbours(g, cycle.at(cycle_size - 1), vertex) || AreNeigbours(g, cycle.at(0), vertex)){
+	std::cout<<"Add? " << vertex <<", " << NumNeigborsWithDegree(g, vertex, 2) << std::endl;
+	if(cycle_size >= 2 && NumNeigborsWithDegree(g, cycle.at(cycle_size), 2) > 2){
+	  std::cout<<"pred? " << cycle.at(cycle_size) <<", " << NumNeigborsWithDegree(g, cycle.at(cycle_size), 2) << std::endl;
+	  if(!AreNeigbours(g, cycle.at(cycle_size - 1), vertex) || AreNeigbours(g, cycle.at(0), last_to_add)){
 	    cycle.push_back(vertex);
 	    last_to_add = vertex;
 	    cycle_size++;
@@ -360,19 +361,22 @@ std::vector<int> GraphOperations::GetBorderCycle(Graph g, std::vector<int> exist
 }
 
 
-std::vector<int> GraphOperations::SortedByDegree ( Graph g, std::vector<int> existing_candidates )
+std::vector<int> GraphOperations::SortedByDegree ( Graph g, std::vector<int> existing_candidates, bool include_ones )
 {
     std::vector<int> result = existing_candidates;
     std::vector< std::pair<int, int> > degree_sorted;
     //std::cout<<"Degree:" << degree(0, g) <<std::endl;
     for ( int i = 0; i < num_vertices ( g ); i++ ) {
-        degree_sorted.push_back ( std::make_pair ( i, degree ( i, g ) ) );
+	if(include_ones){
+	  degree_sorted.push_back ( std::make_pair ( i, degree ( i, g ) ) );
+	} else {
+	  if(degree( i, g ) >= 2){
+	    degree_sorted.push_back ( std::make_pair ( i, degree ( i, g ) ) );
+	  }
+	}
     }
 
     std::sort ( degree_sorted.begin(), degree_sorted.end(), boost::bind ( &std::pair<int, int>::second, _1 ) < boost::bind ( &std::pair<int, int>::second, _2 ) );
-
-    //int v_least_central = vertex ( centralities[0].first, g );
-
     for ( int candidate = 0; candidate < degree_sorted.size(); candidate++ ) {
         if ( !IsIn ( existing_candidates, degree_sorted[candidate].first ) ) {
             result.push_back ( degree_sorted[candidate].first );
@@ -381,6 +385,23 @@ std::vector<int> GraphOperations::SortedByDegree ( Graph g, std::vector<int> exi
 
     return result;
 }
+
+int GraphOperations::NumNeigborsWithDegree ( Graph g, int starting_node, int desired_degree )
+{
+    int neighbour_count = 0;
+    Graph::adjacency_iterator neighbourIt, neighbourEnd;
+    tie ( neighbourIt, neighbourEnd ) = adjacent_vertices ( starting_node, g );
+    
+    for ( ; neighbourIt != neighbourEnd; ++neighbourIt ) {
+      int v_current_neighbor = *neighbourIt;
+      if(degree(v_current_neighbor, g) > desired_degree){
+	  neighbour_count++; 
+      }
+    }
+    return neighbour_count;
+}
+
+
 
 bool GraphOperations::AreNeigbours ( Graph g, int starting_node, int ending_node )
 {
@@ -497,21 +518,21 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     //--
     std::vector<int> cycle_candidates;
      //   candidates.clear();
-    cycle_candidates = SortedByDegree ( g, cycle_candidates );
+    cycle_candidates = SortedByDegree ( g, cycle_candidates, false);
     cycle_candidates = GetBorderCycle ( g, cycle_candidates );
     
     if((cycle_candidates.size() / 2) >= num_partitions){
       std::cout<<"Creating tree using the border cycle " << std::endl;
       
-      //std::cout << "Chain size: " << cycle_candidates.size() << std::endl;
-      //BOOST_FOREACH ( int c, cycle_candidates ) {
-      //  std::cout<< "Chain: " << c << std::endl;
-      //}
+      std::cout << "Chain size: " << cycle_candidates.size() << std::endl;
+      BOOST_FOREACH ( int c, cycle_candidates ) {
+        std::cout<< "Chain: " << c << std::endl;
+      }
       int nth = cycle_candidates.size() / num_partitions;
       for(int i = 0; i < cycle_candidates.size(); i+=nth){
 	subtrees.push_back ( new TreeVertex ( cycle_candidates[i], 0 ) );
 	taken_vertices.push_back ( cycle_candidates[i] );
-	//cout<<"Added(c): " << cycle_candidates[i] << std::endl;
+	cout<<"Added(c): " << cycle_candidates[i] << std::endl;
 	if(taken_vertices.size() >= num_partitions) break;
       }
     } 
@@ -519,7 +540,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     else {
       std::cout<<"Creating tree using non-neighbour and centrality " << std::endl;
       std::vector<int> candidates = NonNeigbourVertices ( g, centralities );
-      candidates = SortedByDegree ( g, candidates );
+      candidates = SortedByDegree ( g, candidates, true);
       for ( int i = 0 ; i < num_partitions; i++ ) {
 	  subtrees.push_back ( new TreeVertex ( candidates[i], 0 ) );
 	  taken_vertices.push_back ( candidates[i] );
