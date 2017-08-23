@@ -27,10 +27,12 @@ int main ( int argc, char *argv[] )
 
     //cout<<"ARG: " << argv[1];
     std::string s = argv[1];
+    int start = atoi(argv[2]);
+    int end = atoi(argv[3]);
 
     std::cout << "Received (boost): " << s << endl;
     GraphOperations go;
-    std::string result = go.GetShortestPath (s , 2, 3);
+    std::string result = go.GetShortestPath (s , start, end);
     std::cout << result << std::endl;
 
     return 0;

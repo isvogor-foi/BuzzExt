@@ -297,15 +297,14 @@ std::vector<GraphOperations::TreeVertex*> GraphOperations::zipit ( std::vector<T
 
 }
 
+
 std::vector<int> GraphOperations::NonNeigbourVertices ( Graph g, std::vector< std::pair<int, float> > centralities )
 {
     std::vector<int> result;
     NameMap nameMap = boost::get ( boost::vertex_name, g );
 
     // reverse sort
-    std::sort ( centralities.begin(), centralities.end(),
-                boost::bind ( &std::pair<int, float>::second, _1 ) <
-                boost::bind ( &std::pair<int, float>::second, _2 ) );
+    std::sort ( centralities.begin(), centralities.end(), boost::bind ( &std::pair<int, float>::second, _1 ) < boost::bind ( &std::pair<int, float>::second, _2 ) );
     int v_least_central = vertex ( centralities[0].first, g ); // < change
     result.push_back ( v_least_central );
 
@@ -320,14 +319,47 @@ std::vector<int> GraphOperations::NonNeigbourVertices ( Graph g, std::vector< st
             result.push_back ( centralities[node].first );
         }
     }
-    /*
-    BOOST_FOREACH(int root, result){
-      std::cout<< "Candidate: " << root << std::endl;
-    }
-    */
-
+   
     return result;
 }
+
+
+std::vector<int> GraphOperations::GetBorderCycle(Graph g, std::vector<int> existing_candidates){
+  std::vector<int> cycle;
+  cycle.push_back(existing_candidates.at(0));
+  int cycle_size = 0;
+  int last_to_add = existing_candidates.at(0);
+  bool chain_not_complete = true;
+  
+  while(chain_not_complete) {
+    BOOST_FOREACH ( int vertex, existing_candidates ) {
+      if(!IsIn(cycle, vertex) && AreNeigbours(g, cycle.at(cycle_size), vertex)){
+	//std::cout<<"Add? " << vertex << std::endl;
+	if(cycle_size >= 2){
+	  if(!AreNeigbours(g, cycle.at(cycle_size - 1), vertex) || AreNeigbours(g, cycle.at(0), vertex)){
+	    cycle.push_back(vertex);
+	    last_to_add = vertex;
+	    cycle_size++;
+	    break;
+	  }
+	} else {
+	  cycle.push_back(vertex);
+	  last_to_add = vertex;
+	  cycle_size++;
+	  break;
+	}
+      }
+    }
+    if(cycle_size > 2 && AreNeigbours(g, cycle.at(0), last_to_add)){
+      chain_not_complete = false;
+    }
+  }
+  //cycle.pop_back();
+  //cycle.at(cycle_size) = cycle.at(0);
+  return cycle;
+}
+
+
 std::vector<int> GraphOperations::SortedByDegree ( Graph g, std::vector<int> existing_candidates )
 {
     std::vector<int> result = existing_candidates;
@@ -337,9 +369,7 @@ std::vector<int> GraphOperations::SortedByDegree ( Graph g, std::vector<int> exi
         degree_sorted.push_back ( std::make_pair ( i, degree ( i, g ) ) );
     }
 
-    std::sort ( degree_sorted.begin(), degree_sorted.end(),
-                boost::bind ( &std::pair<int, int>::second, _1 ) >
-                boost::bind ( &std::pair<int, int>::second, _2 ) );
+    std::sort ( degree_sorted.begin(), degree_sorted.end(), boost::bind ( &std::pair<int, int>::second, _1 ) < boost::bind ( &std::pair<int, int>::second, _2 ) );
 
     //int v_least_central = vertex ( centralities[0].first, g );
 
@@ -442,50 +472,59 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     std::vector<Vertex> taken_vertices;
 
     // select least central nodes as starting point for partitioning
-    /*
-    for(int i = centralities.size() - 1 ; i >= (centralities.size() - num_partitions); i--){
-      std::cout<<i<<". Least central node: " << centralities[i].first << ", " << centralities[i].second <<std::endl;
-      subtrees.push_back ( new TreeVertex ( centralities[i].first, 0 ) );
-      taken_vertices.push_back ( centralities[i].first );
-    }
-    */
-
+    
+    //for(int i = centralities.size() - 1 ; i >= (centralities.size() - num_partitions); i--){
+    //  std::cout<<i<<". Least central node: " << centralities[i].first << ", " << centralities[i].second <<std::endl;
+      //subtrees.push_back ( new TreeVertex ( centralities[i].first, 0 ) );
+      //taken_vertices.push_back ( centralities[i].first );
+    //}
+    
     // select most central nodes as starting point for partitioning
-    
-    for(int i = 0 ; i < centralities.size(); i++){
-      std::cout<<i<<". Most central node: " << centralities[i].first << ", " << centralities[i].second <<std::endl;
-    }
-    
+    //for(int i = 0 ; i < centralities.size(); i++){
+    //  std::cout<<i<<". Most central node: " << centralities[i].first << ", " << centralities[i].second <<std::endl;
+    //}
 
     // TODO: from the main graph, remove duplicates?
     // ConstructSubgraph ----------- whaaaaaaaaaaaaaat?
+    
     std::vector<int> vertex_range;
     for ( int i = 0; i < num_vertices (g); i++ ) {
         vertex_range.push_back ( i );
     }
     g = ConstructSubgraph ( g, vertex_range ); //-- same?
-
-    std::vector<int> candidates = NonNeigbourVertices ( g, centralities );
-    candidates = SortedByDegree ( g, candidates );
-
-    BOOST_FOREACH ( int c, candidates ) {
-        std::cout<< "Candidates final: " << c << std::endl;
-    }
-
-
-    //subtrees.push_back ( new TreeVertex ( 3, 0 ) );
-    //subtrees.push_back ( new TreeVertex ( 7, 0 ) );
-    //subtrees.push_back ( new TreeVertex ( 1, 0 ) );
-    //taken_vertices.push_back ( 3 );
-    //taken_vertices.push_back ( 7 );
-    //taken_vertices.push_back ( 1 );
-    //taken_vertices.push_back(8);
-
-    // old?!
-    for ( int i = 0 ; i < num_partitions; i++ ) {
-        subtrees.push_back ( new TreeVertex ( candidates[i], 0 ) );
-        taken_vertices.push_back ( candidates[i] );
-        cout<<"Added: " << candidates[i] << std::endl;
+    
+    
+    //--
+    std::vector<int> cycle_candidates;
+     //   candidates.clear();
+    cycle_candidates = SortedByDegree ( g, cycle_candidates );
+    cycle_candidates = GetBorderCycle ( g, cycle_candidates );
+    
+    if((cycle_candidates.size() / 2) >= num_partitions){
+      std::cout<<"Creating tree using the border cycle " << std::endl;
+      
+      //std::cout << "Chain size: " << cycle_candidates.size() << std::endl;
+      //BOOST_FOREACH ( int c, cycle_candidates ) {
+      //  std::cout<< "Chain: " << c << std::endl;
+      //}
+      int nth = cycle_candidates.size() / num_partitions;
+      for(int i = 0; i < cycle_candidates.size(); i+=nth){
+	subtrees.push_back ( new TreeVertex ( cycle_candidates[i], 0 ) );
+	taken_vertices.push_back ( cycle_candidates[i] );
+	//cout<<"Added(c): " << cycle_candidates[i] << std::endl;
+	if(taken_vertices.size() >= num_partitions) break;
+      }
+    } 
+    
+    else {
+      std::cout<<"Creating tree using non-neighbour and centrality " << std::endl;
+      std::vector<int> candidates = NonNeigbourVertices ( g, centralities );
+      candidates = SortedByDegree ( g, candidates );
+      for ( int i = 0 ; i < num_partitions; i++ ) {
+	  subtrees.push_back ( new TreeVertex ( candidates[i], 0 ) );
+	  taken_vertices.push_back ( candidates[i] );
+	  cout<<"Added(nn): " << candidates[i] << std::endl;
+      }
     }
 
     BOOST_FOREACH ( TreeVertex* branch, subtrees )
@@ -494,10 +533,9 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 
     bool increase_depth = false;
     int d = 0;
-    int depth = max_depth; // HARDCODED !!!!
+    int depth = max_depth;
 
     // TODO: IDEA, maybe on limit the number of children for each node?
-    // TODO: Maybe the candidate nodes should be at least not neighbours? or 1 distant?
     while ( d < depth ) {
         // check to move to next depth level
         if ( increase_depth ) {
@@ -521,7 +559,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
                 TreeVertex* new_child = new TreeVertex ( neigbour, d + 1 );
                 new_child->SetParent ( current_vertex->GetId() );
                 current_vertex->SetChild ( new_child );
-                cout<< current_vertex->GetId() << " takes " << new_child->GetId() << std::endl;
+                //cout<< current_vertex->GetId() << " takes " << new_child->GetId() << std::endl;
             } else {
                 empty_set_counter -= 1;
                 if ( empty_set_counter == 0 ) {
@@ -546,8 +584,8 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 	
 	final_output += WriteGraphToString ( tree, dp );
 
-	std::cout<< "Partition: " << final_output << std::endl;
-    std::cout<<"Partition: " << WriteGraphToDotString ( tree, dp ) <<std::endl;
+	//std::cout<< "Partition: " << final_output << std::endl;
+      //std::cout<<"Partition: " << WriteGraphToDotString ( tree, dp ) <<std::endl;
 
     }
 

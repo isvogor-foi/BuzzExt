@@ -399,6 +399,8 @@ buzzvm_state CBuzzControllerEFootBot::RegisterFunctions() {
       buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzStopProcessing));
       buzzvm_gstore(m_tBuzzVM);
    }
+
+
    return m_tBuzzVM->state;
 }
 
@@ -406,3 +408,6 @@ buzzvm_state CBuzzControllerEFootBot::RegisterFunctions() {
 /****************************************/
 
 REGISTER_CONTROLLER(CBuzzControllerEFootBot, "buzz_controller_efootbot");
+
+#include </home/ivan/dev/argos-custom/argos3/plugins/robots/e-footbot/simulator/efootbot_entity.h>
+REGISTER_BUZZ_ROBOT(CEFootBotEntity);
