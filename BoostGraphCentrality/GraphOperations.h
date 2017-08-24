@@ -80,15 +80,15 @@ public:
     private:
         int _depth;
         Vertex _m;
-        Vertex _m_parent;
+        TreeVertex* _m_parent;
         std::vector<TreeVertex>* _children;
 
     public:
         TreeVertex ( Vertex id, int depth );
-        void SetParent ( Vertex parent );
+        void SetParent ( TreeVertex* parent );
         void SetChild ( TreeVertex* child );
         std::vector<TreeVertex>* GetChildren();
-        Vertex GetParent();
+        TreeVertex * GetParent();
         Vertex GetId();
     };
 
@@ -103,6 +103,7 @@ public:
     void PrintGraphProperties ( Graph& g, NameMap& nameMap, DistanceMap& distanceMap );
     void RemoveEdges ( Graph& g );
     Vertex GetFreeNeighbor ( Graph& g, Vertex vertex, std::vector<Vertex> taken );
+    Vertex GetTakenNeighbor ( Graph& g, Vertex vertex, std::vector<Vertex> taken );
     std::string CreateTree ( std::string text );
     std::string CreateBalancedForest ( std::string text, int num_partitions, int max_depth);
     std::string GetShortestPath(std::string text, int target, int source);
@@ -120,6 +121,11 @@ private:
     bool AreNeigbours(Graph g, int starting_node, int ending_node);
     Graph ConstructTreeFromGraph(Graph g);
     int NumNeigborsWithDegree ( Graph g, int starting_node, int desired_degree );
+    int Contains(TreeVertex* vertex, int max_depth );
+    void SetupRootCandidates(Graph g, std::vector<TreeVertex*> &subtrees, std::vector<Vertex> &taken_vertices, int num_partitions, std::vector< std::pair<int, float> > centralities);
+    void ConstructForest(Graph g, std::vector<TreeVertex*> &subtrees, std::vector<Vertex> &taken_vertices, std::vector<TreeVertex*> &current_level_nodes, int num_partitions, int max_depth);
+    TreeVertex* FindChild(std::vector<TreeVertex*> subtrees, int node_id);
+
 
 };
 }

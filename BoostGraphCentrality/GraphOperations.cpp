@@ -26,9 +26,10 @@ GraphOperations::TreeVertex::TreeVertex ( Vertex id, int depth )
     _m = id;
     _depth = depth;
     _children = new std::vector<TreeVertex>();
+    _m_parent = NULL;
 }
 
-void GraphOperations::TreeVertex::SetParent ( Vertex parent )
+void GraphOperations::TreeVertex::SetParent ( TreeVertex* parent )
 {
     _m_parent = parent;
 }
@@ -43,7 +44,7 @@ std::vector<GraphOperations::TreeVertex>* GraphOperations::TreeVertex::GetChildr
     return _children;
 }
 
-Vertex GraphOperations::TreeVertex::GetParent()
+GraphOperations::TreeVertex* GraphOperations::TreeVertex::GetParent()
 {
     return _m_parent;
 }
@@ -201,6 +202,21 @@ Vertex GraphOperations::GetFreeNeighbor ( Graph& g, Vertex vertex, std::vector<V
     return BAD_OUTPUT;
 }
 
+Vertex GraphOperations::GetTakenNeighbor ( Graph& g, Vertex vertex, std::vector<Vertex> taken )
+{
+    // loop through neighbours and extract one of the neigbours not in the taken list
+    Graph::adjacency_iterator neighbourIt, neighbourEnd;
+    tie ( neighbourIt, neighbourEnd ) = adjacent_vertices ( vertex, g );
+
+    for ( ; neighbourIt != neighbourEnd; ++neighbourIt ) {
+        Vertex v_current_neighbor = *neighbourIt;
+        if ( std::find ( taken.begin(), taken.end(), v_current_neighbor ) != taken.end() ) {
+            return v_current_neighbor;
+        }
+    }
+    return BAD_OUTPUT;
+}
+
 Graph GraphOperations::ConstructSubgraph ( Graph g, std::vector<int> subtree_vertices )
 {
     Graph subgraph;
@@ -334,9 +350,9 @@ std::vector<int> GraphOperations::GetBorderCycle(Graph g, std::vector<int> exist
   while(chain_not_complete) {
     BOOST_FOREACH ( int vertex, existing_candidates ) {
       if(!IsIn(cycle, vertex) && AreNeigbours(g, cycle.at(cycle_size), vertex)){
-	std::cout<<"Add? " << vertex <<", " << NumNeigborsWithDegree(g, vertex, 2) << std::endl;
+	//std::cout<<"Add? " << vertex <<", " << NumNeigborsWithDegree(g, vertex, 2) << std::endl;
 	if(cycle_size >= 2 && NumNeigborsWithDegree(g, cycle.at(cycle_size), 2) > 2){
-	  std::cout<<"pred? " << cycle.at(cycle_size) <<", " << NumNeigborsWithDegree(g, cycle.at(cycle_size), 2) << std::endl;
+	  //std::cout<<"pred? " << cycle.at(cycle_size) <<", " << NumNeigborsWithDegree(g, cycle.at(cycle_size), 2) << std::endl;
 	  if(!AreNeigbours(g, cycle.at(cycle_size - 1), vertex) || AreNeigbours(g, cycle.at(0), last_to_add)){
 	    cycle.push_back(vertex);
 	    last_to_add = vertex;
@@ -376,7 +392,7 @@ std::vector<int> GraphOperations::SortedByDegree ( Graph g, std::vector<int> exi
 	}
     }
 
-    std::sort ( degree_sorted.begin(), degree_sorted.end(), boost::bind ( &std::pair<int, int>::second, _1 ) > boost::bind ( &std::pair<int, int>::second, _2 ) );
+    std::sort ( degree_sorted.begin(), degree_sorted.end(), boost::bind ( &std::pair<int, int>::second, _1 ) < boost::bind ( &std::pair<int, int>::second, _2 ) );
     for ( int candidate = 0; candidate < degree_sorted.size(); candidate++ ) {
         if ( !IsIn ( existing_candidates, degree_sorted[candidate].first ) ) {
             result.push_back ( degree_sorted[candidate].first );
@@ -416,6 +432,45 @@ bool GraphOperations::AreNeigbours ( Graph g, int starting_node, int ending_node
     return false;
 }
 
+int GraphOperations::Contains(TreeVertex* vertex, int max_depth ){
+  TreeVertex* root;
+  root = vertex->GetParent();    
+  if(vertex->GetParent() == NULL){
+    root = vertex;
+  } else {
+    while(root->GetParent() != NULL){
+      root = root->GetParent();
+    } 
+  }  
+  std::cout<<"Root is: " << root->GetId();
+  
+  std::vector<TreeVertex*> current_children_list;
+    for ( std::vector<TreeVertex>::iterator it = root->GetChildren()->begin(); it != root->GetChildren()->end(); ++it ) {
+      current_children_list.push_back ( & ( *it ) );
+  }
+  
+    std::vector<int> subtree_vertices;
+    subtree_vertices.push_back ( ( int ) root->GetId());
+
+  int current_depth = 0;
+  // find all chilldren and build a list
+  while ( current_depth < max_depth ) {
+      std::vector<TreeVertex*> next_children_list;
+      for ( std::vector<TreeVertex*>::iterator cc_i = current_children_list.begin(); cc_i != current_children_list.end(); ++cc_i ) {
+	  subtree_vertices.push_back ( ( int ) ( *cc_i )->GetId() );
+	  std::vector<TreeVertex>* current_childrens_children = ( *cc_i )->GetChildren();
+	  for ( std::vector<TreeVertex>::iterator c_i = current_childrens_children->begin(); c_i != current_childrens_children->end(); ++c_i ) {
+	      next_children_list.push_back ( & ( *c_i ) );
+	  }
+      }
+      current_depth++;
+      current_children_list = next_children_list;
+  }
+  
+  return subtree_vertices.size();
+
+}
+
 Graph GraphOperations::ExtractSubgraph ( Graph g, TreeVertex* branch, int max_depth )
 {
     // write the children in the list
@@ -446,6 +501,127 @@ Graph GraphOperations::ExtractSubgraph ( Graph g, TreeVertex* branch, int max_de
     return subgraph;
 }
 
+void GraphOperations::SetupRootCandidates(Graph g, std::vector<TreeVertex*> &subtrees, std::vector<Vertex> &taken_vertices, int num_partitions, std::vector< std::pair<int, float> > centralities){
+ 
+    std::vector<int> cycle_candidates;
+    cycle_candidates = SortedByDegree ( g, cycle_candidates, false);
+    cycle_candidates = GetBorderCycle ( g, cycle_candidates );
+    
+    std::cout<<"Creating tree using the border cycle " << std::endl;
+    std::cout << "Chain size: " << cycle_candidates.size() << std::endl;
+    //BOOST_FOREACH ( int c, cycle_candidates ) {
+    //  std::cout<< "Chain: " << c << std::endl;
+    // }
+    
+    if((cycle_candidates.size() / 3) < num_partitions){
+      int nth = cycle_candidates.size() / (cycle_candidates.size() / 3);
+      for(int i = 0; i < cycle_candidates.size(); i+=nth){
+	subtrees.push_back ( new TreeVertex ( cycle_candidates[i], 0 ) );
+	taken_vertices.push_back ( cycle_candidates[i] );
+	//cout<<"Added(c): " << cycle_candidates[i] << std::endl;
+	if(taken_vertices.size() >= num_partitions) break;
+      }
+      
+      std::vector<int> neighbour_candidates = NonNeigbourVertices ( g, centralities );
+
+      neighbour_candidates = SortedByDegree ( g, neighbour_candidates, true);
+      while(subtrees.size() < num_partitions){
+	for(int i = 0; i < neighbour_candidates.size(); i++){
+	  if(!IsIn(cycle_candidates, neighbour_candidates[i])){
+	    std::cout<<"Pushing: " << neighbour_candidates[i] << std::endl;
+	    subtrees.push_back ( new TreeVertex ( neighbour_candidates[i], 0 ) );
+	    taken_vertices.push_back ( neighbour_candidates[i] );
+	    cycle_candidates.push_back ( neighbour_candidates[i] );
+	    break;
+	  }
+	}
+	
+      }
+    } else {
+      int nth = cycle_candidates.size() / num_partitions;
+      for(int i = 0; i < cycle_candidates.size(); i+=nth){
+	subtrees.push_back ( new TreeVertex ( cycle_candidates[i], 0 ) );
+	taken_vertices.push_back ( cycle_candidates[i] );
+	cout<<"Added(c): " << cycle_candidates[i] << std::endl;
+	if(taken_vertices.size() >= num_partitions) break;
+      }
+    }
+}
+
+void GraphOperations::ConstructForest(Graph g, std::vector<TreeVertex*> &subtrees, std::vector<Vertex> &taken_vertices, std::vector<TreeVertex*> &current_level_nodes, int num_partitions, int max_depth){
+    bool increase_depth = false;
+    int d = 0;
+    int depth = max_depth;
+    
+    while ( d < depth ) {
+        // check to move to next depth level
+        if ( increase_depth ) {
+            std::vector<TreeVertex*> next_level_nodes;
+            BOOST_FOREACH ( TreeVertex* current_vertex, current_level_nodes ) {
+                std::vector<TreeVertex>* children = current_vertex->GetChildren();
+                next_level_nodes = zipit ( next_level_nodes, children, d );
+            }
+            current_level_nodes = next_level_nodes;
+            increase_depth = false;
+        }
+        if ( current_level_nodes.empty() ) {
+            break;
+        }
+        // add children non-greedy
+        int empty_set_counter = current_level_nodes.size();
+        BOOST_FOREACH ( TreeVertex* current_vertex, current_level_nodes ) {
+            Vertex neigbour = GetFreeNeighbor ( g, vertex ( current_vertex->GetId(), g ), taken_vertices );
+	    std::cout<<"Contains: " << Contains(current_vertex, depth);
+            if ( neigbour != BAD_OUTPUT && !(Contains(current_vertex, depth) > 7)) {
+                taken_vertices.push_back ( neigbour );
+                TreeVertex* new_child = new TreeVertex ( neigbour, d + 1 );
+                new_child->SetParent ( current_vertex );
+                current_vertex->SetChild ( new_child );
+                //cout<< current_vertex->GetId() << " takes " << new_child->GetId() << std::endl;
+            } else {
+                empty_set_counter -= 1;
+                if ( empty_set_counter == 0 ) {
+                    d++;
+                    increase_depth = true;
+                }
+            }
+        }
+    }
+  
+}
+
+GraphOperations::TreeVertex* GraphOperations::FindChild(std::vector<TreeVertex*> subtrees, int node_id){
+  
+  int max_depth = 5;
+  TreeVertex* result = NULL;
+  std::vector<TreeVertex*> current_children_list;
+  BOOST_FOREACH ( TreeVertex* branch, subtrees ) current_children_list.push_back ( branch );
+  
+  int current_depth = 0;
+  // find all chilldren and build a list
+  while ( current_depth < max_depth ) {
+      std::vector<TreeVertex*> next_children_list;
+      for ( std::vector<TreeVertex*>::iterator cc_i = current_children_list.begin(); cc_i != current_children_list.end(); ++cc_i ) {
+	  //subtree_vertices.push_back ( ( int ) ( *cc_i )->GetId() );
+	  if(( int ) ( *cc_i )->GetId() == node_id) {
+	    result = *cc_i;
+	    return result;
+	    
+	  }
+	  std::vector<TreeVertex>* current_childrens_children = ( *cc_i )->GetChildren();
+	  for ( std::vector<TreeVertex>::iterator c_i = current_childrens_children->begin(); c_i != current_childrens_children->end(); ++c_i ) {
+	      next_children_list.push_back ( & ( *c_i ) );
+	  }
+      }
+      current_depth++;
+      current_children_list = next_children_list;
+  }
+ 
+  return result;
+  
+  
+}
+
 /*********************************************************************
 ***** Tree related opreations
 **********************************************************************/
@@ -458,7 +634,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     const std::string vn = "vertex_name";
     dp.property ( vn,get ( vertex_name,g ) );
     
-    //num_partitions = 18;
+    //num_partitions = 20;
 
     // convert string to char array
     char *graph_xml = new char[text.size() +1];
@@ -493,22 +669,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     std::vector<TreeVertex*> subtrees;
     std::vector<TreeVertex*> current_level_nodes;
     std::vector<Vertex> taken_vertices;
-
-    // select least central nodes as starting point for partitioning
     
-    //for(int i = centralities.size() - 1 ; i >= (centralities.size() - num_partitions); i--){
-    //  std::cout<<i<<". Least central node: " << centralities[i].first << ", " << centralities[i].second <<std::endl;
-      //subtrees.push_back ( new TreeVertex ( centralities[i].first, 0 ) );
-      //taken_vertices.push_back ( centralities[i].first );
-    //}
-    
-    // select most central nodes as starting point for partitioning
-    //for(int i = 0 ; i < centralities.size(); i++){
-    //  std::cout<<i<<". Most central node: " << centralities[i].first << ", " << centralities[i].second <<std::endl;
-    //}
-
-    // TODO: from the main graph, remove duplicates?
-    // ConstructSubgraph ----------- whaaaaaaaaaaaaaat?
     
     std::vector<int> vertex_range;
     for ( int i = 0; i < num_vertices (g); i++ ) {
@@ -516,136 +677,50 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     }
     g = ConstructSubgraph ( g, vertex_range ); //-- same?
     
+    // Setup root candidates (pass by ref... blah)
+    SetupRootCandidates(g, subtrees, taken_vertices, num_partitions, centralities);
+    /*
+    BOOST_FOREACH ( int c, taken_vertices ) {
+      std::cout<< "Roots: " << c << std::endl;
+    }
+    */
     
-    //--
-    std::vector<int> cycle_candidates;
-     //   candidates.clear();
-    cycle_candidates = SortedByDegree ( g, cycle_candidates, false);
-    cycle_candidates = GetBorderCycle ( g, cycle_candidates );
+    BOOST_FOREACH ( TreeVertex* branch, subtrees ) current_level_nodes.push_back ( branch );
     
-      std::cout<<"Creating tree using the border cycle " << std::endl;
-      std::cout << "Chain size: " << cycle_candidates.size() << std::endl;
-      BOOST_FOREACH ( int c, cycle_candidates ) {
-        std::cout<< "Chain: " << c << std::endl;
-      }
+    // create forest 
+    ConstructForest(g, subtrees, taken_vertices, current_level_nodes, num_partitions, max_depth);
+    
+    std::cout<<std::endl<<"Taken vertices: " << taken_vertices.size() << std::endl;
+    
+    if(taken_vertices.size() < num_vertices(g)) {
+       std::cout<< "Handling islands..." << std::endl;
+      // handle islands 
+      std::vector<int> taken_vertices_list;
+      std::vector<int> non_taken_vertices;
+    
+      BOOST_FOREACH(int v, taken_vertices) 
+	taken_vertices_list.push_back(v);
 
-    
-    if((cycle_candidates.size() / 3) < num_partitions){
-      int nth = cycle_candidates.size() / (cycle_candidates.size() / 3);
-      for(int i = 0; i < cycle_candidates.size(); i+=nth){
-	subtrees.push_back ( new TreeVertex ( cycle_candidates[i], 0 ) );
-	taken_vertices.push_back ( cycle_candidates[i] );
-	//cout<<"Added(c): " << cycle_candidates[i] << std::endl;
-	if(taken_vertices.size() >= num_partitions) break;
-      }
+      BOOST_FOREACH(int v, vertex_range) 
+	if(!IsIn(taken_vertices_list, v)) non_taken_vertices.push_back(v);
       
-      
-      std::vector<int> neighbour_candidates = NonNeigbourVertices ( g, centralities );
-
-      neighbour_candidates = SortedByDegree ( g, neighbour_candidates, true);
-      while(subtrees.size() < num_partitions){
-	for(int i = 0; i < neighbour_candidates.size(); i++){
-	  if(!IsIn(cycle_candidates, neighbour_candidates[i])){
-	    std::cout<<"Pushing: " << neighbour_candidates[i] << std::endl;
-	    subtrees.push_back ( new TreeVertex ( neighbour_candidates[i], 0 ) );
-	    taken_vertices.push_back ( neighbour_candidates[i] );
-	    cycle_candidates.push_back ( neighbour_candidates[i] );
-	    break;
-	  }
+      BOOST_FOREACH(int current_island, non_taken_vertices){
+	Vertex neigbour = GetTakenNeighbor ( g, vertex ( current_island, g ), taken_vertices );
+	TreeVertex* v = FindChild(subtrees, (int) neigbour);
+	std::cout<<"Candidate for " << current_island << " is " << v->GetId() << std::endl;
+	if(v != NULL){
+	  taken_vertices.push_back ( current_island );
+	  TreeVertex* new_child = new TreeVertex ( current_island, 0);
+	  new_child->SetParent ( v );
+	  v->SetChild ( new_child );
+	  std::cout << "Added : " << current_island << std::endl;
 	}
-	
-      }
-      //cycle_candidates.size()
-      /*
-      for ( int i = 0 ; i < num_partitions; i++ ) {
-	  subtrees.push_back ( new TreeVertex ( candidates[i], 0 ) );
-	  taken_vertices.push_back ( candidates[i] );
-	  cout<<"Added(nn): " << candidates[i] << std::endl;
-      }
-      /*
-      std::cout<<"Creating tree using the border cycle " << std::endl;
-      std::cout << "Chain size: " << cycle_candidates.size() << std::endl;
-      BOOST_FOREACH ( int c, cycle_candidates ) {
-        std::cout<< "Chain: " << c << std::endl;
-      }
-      int nth = cycle_candidates.size() / num_partitions;
-      for(int i = 0; i < cycle_candidates.size(); i+=nth){
-	subtrees.push_back ( new TreeVertex ( cycle_candidates[i], 0 ) );
-	taken_vertices.push_back ( cycle_candidates[i] );
-	cout<<"Added(c): " << cycle_candidates[i] << std::endl;
-	if(taken_vertices.size() >= num_partitions) break;
-      }
-    } 
-    
-    else {
-      std::cout<<"Creating tree using non-neighbour and centrality " << std::endl;
-      std::vector<int> candidates = NonNeigbourVertices ( g, centralities );
-      candidates = SortedByDegree ( g, candidates, true);
-      for ( int i = 0 ; i < num_partitions; i++ ) {
-	  subtrees.push_back ( new TreeVertex ( candidates[i], 0 ) );
-	  taken_vertices.push_back ( candidates[i] );
-	  cout<<"Added(nn): " << candidates[i] << std::endl;
-      }
-      */
-    } else {
-      int nth = cycle_candidates.size() / num_partitions;
-      for(int i = 0; i < cycle_candidates.size(); i+=nth){
-	subtrees.push_back ( new TreeVertex ( cycle_candidates[i], 0 ) );
-	taken_vertices.push_back ( cycle_candidates[i] );
-	cout<<"Added(c): " << cycle_candidates[i] << std::endl;
-	if(taken_vertices.size() >= num_partitions) break;
+
       }
       
-    }
     
-      BOOST_FOREACH ( int c, taken_vertices ) {
-        std::cout<< "Roots: " << c << std::endl;
-      }
-
-    BOOST_FOREACH ( TreeVertex* branch, subtrees )
-    	current_level_nodes.push_back ( branch );
-
-
-    bool increase_depth = false;
-    int d = 0;
-    int depth = max_depth;
-
-    // TODO: IDEA, maybe on limit the number of children for each node?
-    while ( d < depth ) {
-          std::cout<<"DONE! " << d <<std::endl;
-        // check to move to next depth level
-        if ( increase_depth ) {
-            std::vector<TreeVertex*> next_level_nodes;
-            BOOST_FOREACH ( TreeVertex* current_vertex, current_level_nodes ) {
-                std::vector<TreeVertex>* children = current_vertex->GetChildren();
-                next_level_nodes = zipit ( next_level_nodes, children, d );
-            }
-            current_level_nodes = next_level_nodes;
-            increase_depth = false;
-        }
-        if ( current_level_nodes.empty() ) {
-            break;
-        }
-        // add children non-greedy
-        int empty_set_counter = current_level_nodes.size();
-        BOOST_FOREACH ( TreeVertex* current_vertex, current_level_nodes ) {
-            Vertex neigbour = GetFreeNeighbor ( g, vertex ( current_vertex->GetId(), g ), taken_vertices );
-            if ( neigbour != BAD_OUTPUT ) {
-                taken_vertices.push_back ( neigbour );
-                TreeVertex* new_child = new TreeVertex ( neigbour, d + 1 );
-                new_child->SetParent ( current_vertex->GetId() );
-                current_vertex->SetChild ( new_child );
-                //cout<< current_vertex->GetId() << " takes " << new_child->GetId() << std::endl;
-            } else {
-                empty_set_counter -= 1;
-                if ( empty_set_counter == 0 ) {
-                    d++;
-                    increase_depth = true;
-                }
-            }
-        }
+      std::cout<<std::endl<<"Taken vertices: " << taken_vertices.size() << std::endl;
     }
- 
 
     // For each tree, print it
     std::string final_output = "";
@@ -653,7 +728,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     int i = 0; 
     BOOST_FOREACH ( TreeVertex* current_vertex, subtrees ) {
 
-        Graph partition = ExtractSubgraph ( g, current_vertex, depth );
+        Graph partition = ExtractSubgraph ( g, current_vertex, max_depth );
         partitions.push_back ( partition );
         // print
         dynamic_properties dp;
@@ -663,7 +738,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 	final_output += WriteGraphToString ( tree, dp );
 	//std::cout<< "Partition: " << final_output << std::endl;
         std::cout<<"Partition: " << WriteGraphToDotString ( tree, dp ) <<std::endl;
-	//std::cout<< "Tree: " << i << std::endl;
+	std::cout<< "Tree: " << i << ", size: "<< num_vertices(partition) << std::endl;
 	i++;
 
     }
