@@ -34,7 +34,7 @@ int main ( int argc, char *argv[] )
     GraphOperations go;
     // source, destination
     // graph, trees, max depth
-    std::string result = go.CreateBalancedForest(s, 7, 5);
+    std::string result = go.CreateBalancedForest(s, 20, 5);
     //std::string result = go.GetShortestPath (s , 2, 3);
 
     std::cout <<"Result: "<< result << std::endl;

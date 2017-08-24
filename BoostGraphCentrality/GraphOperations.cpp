@@ -304,7 +304,7 @@ std::vector<int> GraphOperations::NonNeigbourVertices ( Graph g, std::vector< st
     NameMap nameMap = boost::get ( boost::vertex_name, g );
 
     // reverse sort
-    std::sort ( centralities.begin(), centralities.end(), boost::bind ( &std::pair<int, float>::second, _1 ) < boost::bind ( &std::pair<int, float>::second, _2 ) );
+    std::sort ( centralities.begin(), centralities.end(), boost::bind ( &std::pair<int, float>::second, _1 ) > boost::bind ( &std::pair<int, float>::second, _2 ) );
     int v_least_central = vertex ( centralities[0].first, g ); // < change
     result.push_back ( v_least_central );
 
@@ -521,9 +521,47 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     cycle_candidates = SortedByDegree ( g, cycle_candidates, false);
     cycle_candidates = GetBorderCycle ( g, cycle_candidates );
     
-    if((cycle_candidates.size() / 2) >= num_partitions){
       std::cout<<"Creating tree using the border cycle " << std::endl;
+      std::cout << "Chain size: " << cycle_candidates.size() << std::endl;
+      BOOST_FOREACH ( int c, cycle_candidates ) {
+        std::cout<< "Chain: " << c << std::endl;
+      }
+
+    
+    if((cycle_candidates.size() / 2) < num_partitions){
+      int nth = cycle_candidates.size() / (cycle_candidates.size() / 2);
+      for(int i = 0; i < cycle_candidates.size(); i+=nth){
+	subtrees.push_back ( new TreeVertex ( cycle_candidates[i], 0 ) );
+	taken_vertices.push_back ( cycle_candidates[i] );
+	//cout<<"Added(c): " << cycle_candidates[i] << std::endl;
+	if(taken_vertices.size() >= num_partitions) break;
+      }
       
+      
+      std::vector<int> neighbour_candidates = NonNeigbourVertices ( g, centralities );
+
+      neighbour_candidates = SortedByDegree ( g, neighbour_candidates, true);
+      while(subtrees.size() < num_partitions){
+	for(int i = 0; i < neighbour_candidates.size(); i++){
+	  if(!IsIn(cycle_candidates, neighbour_candidates[i])){
+	    std::cout<<"Pushing: " << neighbour_candidates[i] << std::endl;
+	    subtrees.push_back ( new TreeVertex ( neighbour_candidates[i], 0 ) );
+	    taken_vertices.push_back ( neighbour_candidates[i] );
+	    cycle_candidates.push_back ( neighbour_candidates[i] );
+	    break;
+	  }
+	}
+	
+      }
+      //cycle_candidates.size()
+      /*
+      for ( int i = 0 ; i < num_partitions; i++ ) {
+	  subtrees.push_back ( new TreeVertex ( candidates[i], 0 ) );
+	  taken_vertices.push_back ( candidates[i] );
+	  cout<<"Added(nn): " << candidates[i] << std::endl;
+      }
+      /*
+      std::cout<<"Creating tree using the border cycle " << std::endl;
       std::cout << "Chain size: " << cycle_candidates.size() << std::endl;
       BOOST_FOREACH ( int c, cycle_candidates ) {
         std::cout<< "Chain: " << c << std::endl;
@@ -546,7 +584,21 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 	  taken_vertices.push_back ( candidates[i] );
 	  cout<<"Added(nn): " << candidates[i] << std::endl;
       }
+      */
+    } else {
+      int nth = cycle_candidates.size() / num_partitions;
+      for(int i = 0; i < cycle_candidates.size(); i+=nth){
+	subtrees.push_back ( new TreeVertex ( cycle_candidates[i], 0 ) );
+	taken_vertices.push_back ( cycle_candidates[i] );
+	cout<<"Added(c): " << cycle_candidates[i] << std::endl;
+	if(taken_vertices.size() >= num_partitions) break;
+      }
+      
     }
+    
+      BOOST_FOREACH ( int c, taken_vertices ) {
+        std::cout<< "Roots: " << c << std::endl;
+      }
 
     BOOST_FOREACH ( TreeVertex* branch, subtrees )
     	current_level_nodes.push_back ( branch );
@@ -558,6 +610,7 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 
     // TODO: IDEA, maybe on limit the number of children for each node?
     while ( d < depth ) {
+          std::cout<<"DONE! " << d <<std::endl;
         // check to move to next depth level
         if ( increase_depth ) {
             std::vector<TreeVertex*> next_level_nodes;
@@ -590,12 +643,14 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
             }
         }
     }
-
+ 
 
     // For each tree, print it
     std::string final_output = "";
     std::vector<Graph> partitions;
+    int i = 0; 
     BOOST_FOREACH ( TreeVertex* current_vertex, subtrees ) {
+
         Graph partition = ExtractSubgraph ( g, current_vertex, depth );
         partitions.push_back ( partition );
         // print
@@ -604,12 +659,12 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 	Graph tree = ConstructTreeFromGraph(partition);
 	
 	final_output += WriteGraphToString ( tree, dp );
-
 	//std::cout<< "Partition: " << final_output << std::endl;
-      //std::cout<<"Partition: " << WriteGraphToDotString ( tree, dp ) <<std::endl;
+        //std::cout<<"Partition: " << WriteGraphToDotString ( tree, dp ) <<std::endl;
+	std::cout<< "Tree: " << i << std::endl;
+	i++;
 
     }
-
 
     //dynamic_properties dp2;
     //dp2.property ( "node_id", get ( vertex_name, partitions[0] ) );
