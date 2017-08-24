@@ -376,7 +376,7 @@ std::vector<int> GraphOperations::SortedByDegree ( Graph g, std::vector<int> exi
 	}
     }
 
-    std::sort ( degree_sorted.begin(), degree_sorted.end(), boost::bind ( &std::pair<int, int>::second, _1 ) < boost::bind ( &std::pair<int, int>::second, _2 ) );
+    std::sort ( degree_sorted.begin(), degree_sorted.end(), boost::bind ( &std::pair<int, int>::second, _1 ) > boost::bind ( &std::pair<int, int>::second, _2 ) );
     for ( int candidate = 0; candidate < degree_sorted.size(); candidate++ ) {
         if ( !IsIn ( existing_candidates, degree_sorted[candidate].first ) ) {
             result.push_back ( degree_sorted[candidate].first );
@@ -457,6 +457,8 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 
     const std::string vn = "vertex_name";
     dp.property ( vn,get ( vertex_name,g ) );
+    
+    //num_partitions = 18;
 
     // convert string to char array
     char *graph_xml = new char[text.size() +1];
@@ -528,8 +530,8 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
       }
 
     
-    if((cycle_candidates.size() / 2) < num_partitions){
-      int nth = cycle_candidates.size() / (cycle_candidates.size() / 2);
+    if((cycle_candidates.size() / 3) < num_partitions){
+      int nth = cycle_candidates.size() / (cycle_candidates.size() / 3);
       for(int i = 0; i < cycle_candidates.size(); i+=nth){
 	subtrees.push_back ( new TreeVertex ( cycle_candidates[i], 0 ) );
 	taken_vertices.push_back ( cycle_candidates[i] );
@@ -660,8 +662,8 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
 	
 	final_output += WriteGraphToString ( tree, dp );
 	//std::cout<< "Partition: " << final_output << std::endl;
-        //std::cout<<"Partition: " << WriteGraphToDotString ( tree, dp ) <<std::endl;
-	std::cout<< "Tree: " << i << std::endl;
+        std::cout<<"Partition: " << WriteGraphToDotString ( tree, dp ) <<std::endl;
+	//std::cout<< "Tree: " << i << std::endl;
 	i++;
 
     }
