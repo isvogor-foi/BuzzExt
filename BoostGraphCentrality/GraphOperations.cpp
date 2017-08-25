@@ -346,6 +346,7 @@ std::vector<int> GraphOperations::GetBorderCycle(Graph g, std::vector<int> exist
   int cycle_size = 0;
   int last_to_add = existing_candidates.at(0);
   bool chain_not_complete = true;
+  int missed = 0;
   
   while(chain_not_complete) {
     BOOST_FOREACH ( int vertex, existing_candidates ) {
@@ -354,20 +355,29 @@ std::vector<int> GraphOperations::GetBorderCycle(Graph g, std::vector<int> exist
 	if(cycle_size >= 2 && NumNeigborsWithDegree(g, cycle.at(cycle_size), 2) > 2){
 	  //std::cout<<"pred? " << cycle.at(cycle_size) <<", " << NumNeigborsWithDegree(g, cycle.at(cycle_size), 2) << std::endl;
 	  if(!AreNeigbours(g, cycle.at(cycle_size - 1), vertex) || AreNeigbours(g, cycle.at(0), last_to_add)){
+	    std::cout<<"Adding: " << vertex << std::endl;
 	    cycle.push_back(vertex);
 	    last_to_add = vertex;
 	    cycle_size++;
+	    missed = 0;
 	    break;
 	  }
 	} else {
+	  std::cout<<"Adding: " << vertex << std::endl;
 	  cycle.push_back(vertex);
 	  last_to_add = vertex;
 	  cycle_size++;
+	  missed = 0;
 	  break;
 	}
       }
-    }
+      //if(cycle_size > 2 && AreNeigbours(g, cycle.at(0), last_to_add)) break;
+    } // end foreach
+    std::cout<<"Stuck? "<< cycle.at(0) << last_to_add <<std::endl;
+    missed++;
     if(cycle_size > 2 && AreNeigbours(g, cycle.at(0), last_to_add)){
+      chain_not_complete = false;
+    } else if(missed > existing_candidates.size()){
       chain_not_complete = false;
     }
   }
@@ -509,9 +519,9 @@ void GraphOperations::SetupRootCandidates(Graph g, std::vector<TreeVertex*> &sub
     
     std::cout<<"Creating tree using the border cycle " << std::endl;
     std::cout << "Chain size: " << cycle_candidates.size() << std::endl;
-    //BOOST_FOREACH ( int c, cycle_candidates ) {
-    //  std::cout<< "Chain: " << c << std::endl;
-    // }
+    BOOST_FOREACH ( int c, cycle_candidates ) {
+      std::cout<< "Chain: " << c << std::endl;
+    }
     
     if((cycle_candidates.size() / 3) < num_partitions){
       int nth = cycle_candidates.size() / (cycle_candidates.size() / 3);
@@ -679,11 +689,11 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     
     // Setup root candidates (pass by ref... blah)
     SetupRootCandidates(g, subtrees, taken_vertices, num_partitions, centralities);
-    /*
+    
     BOOST_FOREACH ( int c, taken_vertices ) {
       std::cout<< "Roots: " << c << std::endl;
     }
-    */
+    
     
     BOOST_FOREACH ( TreeVertex* branch, subtrees ) current_level_nodes.push_back ( branch );
     
