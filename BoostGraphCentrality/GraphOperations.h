@@ -121,7 +121,7 @@ private:
     bool AreNeigbours(Graph g, int starting_node, int ending_node);
     Graph ConstructTreeFromGraph(Graph g);
     int NumNeigborsWithDegree ( Graph g, int starting_node, int desired_degree );
-    int Contains(TreeVertex* vertex, int max_depth );
+    int TreeSize(TreeVertex* vertex, int max_depth );
     void SetupRootCandidates(Graph g, std::vector<TreeVertex*> &subtrees, std::vector<Vertex> &taken_vertices, int num_partitions, std::vector< std::pair<int, float> > centralities);
     void ConstructForest(Graph g, std::vector<TreeVertex*> &subtrees, std::vector<Vertex> &taken_vertices, std::vector<TreeVertex*> &current_level_nodes, int num_partitions, int max_depth);
     TreeVertex* FindChild(std::vector<TreeVertex*> subtrees, int node_id);

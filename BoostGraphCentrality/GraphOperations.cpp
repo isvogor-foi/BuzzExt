@@ -371,9 +371,8 @@ std::vector<int> GraphOperations::GetBorderCycle(Graph g, std::vector<int> exist
 	  break;
 	}
       }
-      //if(cycle_size > 2 && AreNeigbours(g, cycle.at(0), last_to_add)) break;
     } // end foreach
-    std::cout<<"Stuck? "<< cycle.at(0) << last_to_add <<std::endl;
+    //std::cout<<"Stuck? "<< cycle.at(0) << last_to_add <<std::endl;
     missed++;
     if(cycle_size > 2 && AreNeigbours(g, cycle.at(0), last_to_add)){
       chain_not_complete = false;
@@ -442,7 +441,7 @@ bool GraphOperations::AreNeigbours ( Graph g, int starting_node, int ending_node
     return false;
 }
 
-int GraphOperations::Contains(TreeVertex* vertex, int max_depth ){
+int GraphOperations::TreeSize(TreeVertex* vertex, int max_depth ){
   TreeVertex* root;
   root = vertex->GetParent();    
   if(vertex->GetParent() == NULL){
@@ -581,8 +580,8 @@ void GraphOperations::ConstructForest(Graph g, std::vector<TreeVertex*> &subtree
         int empty_set_counter = current_level_nodes.size();
         BOOST_FOREACH ( TreeVertex* current_vertex, current_level_nodes ) {
             Vertex neigbour = GetFreeNeighbor ( g, vertex ( current_vertex->GetId(), g ), taken_vertices );
-	    std::cout<<"Contains: " << Contains(current_vertex, depth);
-            if ( neigbour != BAD_OUTPUT && !(Contains(current_vertex, depth) > 7)) {
+	    std::cout<<"TreeSize: " << TreeSize(current_vertex, depth);
+            if ( neigbour != BAD_OUTPUT && !(TreeSize(current_vertex, depth) > 7)) {
                 taken_vertices.push_back ( neigbour );
                 TreeVertex* new_child = new TreeVertex ( neigbour, d + 1 );
                 new_child->SetParent ( current_vertex );
@@ -685,7 +684,8 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     for ( int i = 0; i < num_vertices (g); i++ ) {
         vertex_range.push_back ( i );
     }
-    g = ConstructSubgraph ( g, vertex_range ); //-- same?
+    // removes extra edges? - definetly destroys the names (only for Kheperas)
+    //g = ConstructSubgraph ( g, vertex_range ); //-- same?
     
     // Setup root candidates (pass by ref... blah)
     SetupRootCandidates(g, subtrees, taken_vertices, num_partitions, centralities);
@@ -736,6 +736,14 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     std::string final_output = "";
     std::vector<Graph> partitions;
     int i = 0; 
+    
+    std::vector< std::pair<int, int> > original_names;
+    //NameMap nameMap = boost::get ( boost::vertex_name, g );
+    for ( int i = 0; i < num_vertices ( g ); i++ ) {
+      original_names.push_back(std::make_pair(i, std::atoi(nameMap[i].c_str())));
+      std::cout<<"Original: " << i << ", " << nameMap[i] << std::endl;
+    }
+    
     BOOST_FOREACH ( TreeVertex* current_vertex, subtrees ) {
 
         Graph partition = ExtractSubgraph ( g, current_vertex, max_depth );
@@ -756,6 +764,15 @@ std::string GraphOperations::CreateBalancedForest ( std::string text, int num_pa
     //dynamic_properties dp2;
     //dp2.property ( "node_id", get ( vertex_name, partitions[0] ) );
     //return WriteGraphToString ( partitions[0], dp2 );
+    
+    // khepera name hack
+    for(int i = original_names.size() - 1; i >= 0 ; i--){
+      stringstream first, second;
+      first << original_names[i].first;
+      second << original_names[i].second;     
+      std::cout<<"Replacing: " << first.str() << " with " << second.str() << ", " << final_output << std::endl;
+      boost::replace_all(final_output, first.str(), second.str());
+    }
     
     return final_output;
 }
@@ -837,7 +854,7 @@ Graph GraphOperations::ConstructTreeFromGraph(Graph g)
 
 
 std::string GraphOperations::GetShortestPath(std::string text, int source, int destination)
-{
+{  
     Graph g;
     dynamic_properties dp;
 
@@ -860,6 +877,26 @@ std::string GraphOperations::GetShortestPath(std::string text, int source, int d
 
     PredecessorMap predecessorMap ( &predecessors[0], indexMap );
     DistanceMap distanceMap ( &distances[0], indexMap );
+    
+    
+    /** khepera hack */
+    Vertex v0;
+    Vertex v3;
+    
+    std::vector< std::pair<int, int> > original_names;
+    for ( int i = 0; i < num_vertices ( g ); i++ ) {
+      original_names.push_back(std::make_pair(i, std::atoi(nameMap[i].c_str())));
+      if(std::atoi(nameMap[i].c_str()) == source){
+	  v3 = vertex ( i, g );
+	  //std::cout<<"Selected " << i << " as " << source << std::endl;
+      }
+      if(std::atoi(nameMap[i].c_str()) == destination) {
+	v0 = vertex ( i, g );
+	//std::cout<<"Selected " << i << " as " << destination << std::endl;	
+      }
+  
+      //std::cout<<"Original: " << i << ", " << nameMap[i] << std::endl;
+    }
 
     // set names and weights
     //SetNames(g, nameMap);
@@ -869,13 +906,15 @@ std::string GraphOperations::GetShortestPath(std::string text, int source, int d
       // floyd warshall
     //std::vector< std::pair<int, float> > centralities = GetCentralities ( g, nameMap, indexMap );
 
-    // dijkstra
-    Vertex v0 = vertex ( destination , g ); // < change
-    boost::dijkstra_shortest_paths ( g, v0, boost::distance_map ( distanceMap ).predecessor_map ( predecessorMap ) );
 
+    
+    // dijkstra
+    boost::dijkstra_shortest_paths ( g, v0, boost::distance_map ( distanceMap ).predecessor_map ( predecessorMap ) );
+    //std::cout<<"S start..." << std::endl;
+
+    
     std::string shortest_path = "";
     int path_steps = 0;
-	Vertex v3= vertex ( source, g );
 	Vertex v = v3; // We want to start at the destination and work our way back to the source
 	for ( Vertex u = predecessorMap[v];  u != v; v = u, u = predecessorMap[v] ) {
 		std::ostringstream ss;
@@ -883,14 +922,23 @@ std::string GraphOperations::GetShortestPath(std::string text, int source, int d
 		shortest_path += ";" + ss.str();
 		path_steps++;
 	}
+	
+      // khepera name hack
+      for(int i = original_names.size() - 1; i >= 0 ; i--){
+	stringstream first, second;
+	first << original_names[i].first;
+	second << original_names[i].second;     
+	//std::cout<<"Replacing: " << first.str() << " with " << second.str() << ", " << shortest_path << std::endl;
+	boost::replace_all(shortest_path, first.str(), second.str());
+      }
 
-	std::ostringstream ss;
-	ss << destination;
-	shortest_path += ";" + ss.str();
-	ss.str("");
-	ss.clear();
-	ss << path_steps;
-	shortest_path = ss.str() + shortest_path;
+      std::ostringstream ss;
+      ss << destination;
+      shortest_path += ";" + ss.str();
+      ss.str("");
+      ss.clear();
+      ss << path_steps;
+      shortest_path = ss.str() + shortest_path;
 
     return shortest_path;
 }

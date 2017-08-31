@@ -29,7 +29,7 @@ int main ( int argc, char *argv[] )
     std::string s = argv[1];
     int n = atoi(argv[2]);
     
-    std::cout << "Received (boost): " << s << endl;
+    //std::cout << "Received (boost): " << s << endl;
     GraphOperations go;
     std::string result = go.CreateBalancedForest (s, n, 5);
     std::cout << result << std::endl;
