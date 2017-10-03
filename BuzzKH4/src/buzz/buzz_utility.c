@@ -328,6 +328,7 @@ static int buzz_register_hooks() {
    buzzvm_gstore(VM);
 
    /* GenerateForest */
+   /*
    buzzvm_pushs(VM, buzzvm_string_register(VM, "generate_forest", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzCreateBalancedForest));
    buzzvm_gstore(VM);
@@ -335,6 +336,7 @@ static int buzz_register_hooks() {
    buzzvm_pushs(VM, buzzvm_string_register(VM, "generate_tree", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzCreateTree));
    buzzvm_gstore(VM);
+   */ 
 
    return BUZZVM_STATE_READY;
 }
@@ -519,9 +521,11 @@ void buzz_script_step() {
    /*
     * Update sensors
     */
-   buzzkh4_update_simulated_battery(buzzvm_t vm);
+   buzzkh4_update_simulated_battery(VM);
    buzzkh4_update_battery(VM);
    buzzkh4_update_ir(VM);
+   buzzkh4_update_ir_new(VM);
+
    /*
     * Call Buzz step() function
     */

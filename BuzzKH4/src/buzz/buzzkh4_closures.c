@@ -205,7 +205,7 @@ int buzzkh4_set_leds(buzzvm_t vm) {
 
 int buzzkh4_update_simulated_battery(buzzvm_t vm) {
   soc += discharge_current;
-  Register("soc", soc);
+  //Register("soc", soc);
 
   return vm->state;
 }
@@ -237,6 +237,50 @@ int buzzkh4_update_battery(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
+int buzzkh4_update_ir_new(buzzvm_t vm) {
+   static char PROXIMITY_BUF[256];
+   int i;
+   kh4_proximity_ir(PROXIMITY_BUF, DSPIC);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "proximity", 1));
+   buzzvm_pusht(vm);
+   buzzobj_t tProxTable = buzzvm_stack_at(vm, 1);
+   buzzvm_gstore(vm);
+   buzzobj_t tProxRead;
+   for(i = 0; i < 8; i++) {
+      buzzvm_pusht(vm);
+      tProxRead = buzzvm_stack_at(vm, 1);
+      buzzvm_pop(vm);
+      /* Fill in the read */
+      int a = (i + 3) % 8;
+      TablePutI(tProxRead, "value", (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8), vm);
+      int angle = 7 - i;
+      TablePutI(tProxRead, "angle", angle * 45, vm);
+      /* Store read table in the proximity table */
+      TablePutO(tProxTable, i, tProxRead, vm);
+   }
+
+   return vm->state;
+}
+
+/****************************************/
+buzzvm_state TablePutI(buzzobj_t t_table, const char* str_key, int n_value, buzzvm_t m_tBuzzVM) {
+   buzzvm_push(m_tBuzzVM, t_table);
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, str_key, 1));
+   buzzvm_pushi(m_tBuzzVM, n_value);
+   buzzvm_tput(m_tBuzzVM);
+   return m_tBuzzVM->state;
+}
+
+buzzvm_state TablePutO(buzzobj_t t_table, int n_idx, buzzobj_t t_obj, buzzvm_t m_tBuzzVM) {
+   buzzvm_push(m_tBuzzVM, t_table);
+   buzzvm_pushi(m_tBuzzVM, n_idx);
+   buzzvm_push(m_tBuzzVM, t_obj);
+   buzzvm_tput(m_tBuzzVM);
+   return m_tBuzzVM->state;
+}
+
+/****************************************/
+
 int buzzkh4_update_ir(buzzvm_t vm) {
    static char PROXIMITY_BUF[256];
    int i;
@@ -261,9 +305,6 @@ int buzzkh4_update_ir(buzzvm_t vm) {
    buzzvm_gstore(vm);
    return vm->state;
 }
-
-/****************************************/
-/****************************************/
 
 /****************************************/
 /****************************************/
@@ -372,11 +413,14 @@ size_t writefunc(void *ptr, size_t size, size_t nmemb, struct string *s)
   return size*nmemb;
 }
 
+/*
 char* CreateBalancedForest(char* graphml, int num_roots){
+  
   CURL *curl;
   CURLcode res;
 
   struct string s;
+  
   init_string(&s);
 
   curl_global_init(CURL_GLOBAL_ALL);
@@ -412,8 +456,9 @@ char* CreateBalancedForest(char* graphml, int num_roots){
 
   free(post_field);
   curl_global_cleanup();
-
+ 
   return s.ptr;
+ 
 }
 
 
@@ -479,3 +524,4 @@ int BuzzCreateTree(buzzvm_t vm) {
 
   return buzzvm_ret1(vm);
 }
+*/

@@ -151,7 +151,7 @@ protected:
                          SInt32 n_idx,
                          const CColor& c_color);
 
-protected:
+public:
 
    /* Pointer to the range and bearing actuator */
    CCI_RangeAndBearingActuator*  m_pcRABA;
@@ -160,6 +160,7 @@ protected:
    /* Pointer to the positioning sensor */
    CCI_PositioningSensor* m_pcPos;
 
+protected:
    /* The robot numeric id */
    UInt16 m_unRobotId;
    /* Buzz VM state */
