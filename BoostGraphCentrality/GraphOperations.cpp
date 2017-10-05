@@ -581,7 +581,7 @@ void GraphOperations::ConstructForest(Graph g, std::vector<TreeVertex*> &subtree
         BOOST_FOREACH ( TreeVertex* current_vertex, current_level_nodes ) {
             Vertex neigbour = GetFreeNeighbor ( g, vertex ( current_vertex->GetId(), g ), taken_vertices );
 	    std::cout<<"TreeSize: " << TreeSize(current_vertex, depth);
-            if ( neigbour != BAD_OUTPUT && !(TreeSize(current_vertex, depth) > 7)) {
+            if ( neigbour != BAD_OUTPUT && !(TreeSize(current_vertex, depth) > 3)) {
                 taken_vertices.push_back ( neigbour );
                 TreeVertex* new_child = new TreeVertex ( neigbour, d + 1 );
                 new_child->SetParent ( current_vertex );

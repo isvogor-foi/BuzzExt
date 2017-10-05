@@ -252,7 +252,8 @@ int buzzkh4_update_ir_new(buzzvm_t vm) {
       buzzvm_pop(vm);
       /* Fill in the read */
       int a = (i + 3) % 8;
-      TablePutI(tProxRead, "value", (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8), vm);
+      //TablePutI(tProxRead, "value", (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8), vm);
+      TablePutF(tProxRead, "value", (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8) / 1024.0f, vm);
       int angle = 7 - i;
       TablePutI(tProxRead, "angle", angle * 45, vm);
       /* Store read table in the proximity table */
@@ -263,6 +264,14 @@ int buzzkh4_update_ir_new(buzzvm_t vm) {
 }
 
 /****************************************/
+buzzvm_state TablePutF(buzzobj_t t_table, const char* str_key, float n_value, buzzvm_t m_tBuzzVM) {
+   buzzvm_push(m_tBuzzVM, t_table);
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, str_key, 1));
+   buzzvm_pushf(m_tBuzzVM, n_value);
+   buzzvm_tput(m_tBuzzVM);
+   return m_tBuzzVM->state;
+}
+
 buzzvm_state TablePutI(buzzobj_t t_table, const char* str_key, int n_value, buzzvm_t m_tBuzzVM) {
    buzzvm_push(m_tBuzzVM, t_table);
    buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, str_key, 1));

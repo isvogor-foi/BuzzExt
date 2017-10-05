@@ -50,6 +50,8 @@ extern buzzvm_state TablePutI(buzzobj_t t_table, const char* str_key, int n_valu
 
 extern buzzvm_state TablePutO(buzzobj_t t_table, int n_idx, buzzobj_t t_obj, buzzvm_t m_tBuzzVM);
 
+extern buzzvm_state TablePutF(buzzobj_t t_table, const char* str_key, float n_value, buzzvm_t m_tBuzzVM);
+
 extern int buzzkh4_update_ir_new(buzzvm_t vm);
 
 extern int BuzzGoTo(buzzvm_t vm);

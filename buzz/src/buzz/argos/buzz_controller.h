@@ -7,6 +7,8 @@
 #include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_actuator.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_sensor.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_sensor.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_proximity_sensor.h>
 #include <buzz/buzzvm.h>
 #include <buzz/buzzdebug.h>
 #include <string>
@@ -159,6 +161,8 @@ public:
    CCI_RangeAndBearingSensor* m_pcRABS;
    /* Pointer to the positioning sensor */
    CCI_PositioningSensor* m_pcPos;
+   /* Pointer to the proximity sensor */
+   CCI_ProximitySensor *m_pcProximity;
 
 protected:
    /* The robot numeric id */
