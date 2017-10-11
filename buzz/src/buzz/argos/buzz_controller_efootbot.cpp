@@ -192,7 +192,7 @@ void CBuzzControllerEFootBot::Init(TConfigurationNode& t_node) {
       CBuzzController::Init(t_node);
    }
    catch(CARGoSException& ex) {
-      THROW_ARGOSEXCEPTION_NESTED("Error initializing the Buzz controller for the foot-bot", ex);
+      THROW_ARGOSEXCEPTION_NESTED("Error initializing the Buzz controller for the efootbot", ex);
    }
 }
 

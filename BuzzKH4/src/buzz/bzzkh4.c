@@ -26,6 +26,7 @@ static void ctrlc_handler(int sig) {
 }
 
 int main(int argc, char** argv) {
+   printf("Ok................ \n");
    /* Parse command line */
    if(argc != 5) usage(argv[0], 0);
    /* The stream type */

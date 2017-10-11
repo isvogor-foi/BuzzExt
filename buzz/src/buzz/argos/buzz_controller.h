@@ -162,7 +162,7 @@ public:
    /* Pointer to the positioning sensor */
    CCI_PositioningSensor* m_pcPos;
    /* Pointer to the proximity sensor */
-   CCI_ProximitySensor *m_pcProximity;
+   //CCI_ProximitySensor *m_pcProximity;
 
 protected:
    /* The robot numeric id */

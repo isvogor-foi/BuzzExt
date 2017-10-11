@@ -126,7 +126,7 @@ void CBuzzController::Init(TConfigurationNode& t_node) {
       /* Get pointers to devices */
       m_pcRABA   = GetActuator<CCI_RangeAndBearingActuator>("range_and_bearing");
       m_pcRABS   = GetSensor  <CCI_RangeAndBearingSensor  >("range_and_bearing");
-      m_pcProximity = GetSensor <CCI_ProximitySensor> ("proximity");
+      //m_pcProximity = GetSensor <CCI_ProximitySensor> ("proximity");
       try {
          m_pcPos = GetSensor  <CCI_PositioningSensor>("positioning");
       }

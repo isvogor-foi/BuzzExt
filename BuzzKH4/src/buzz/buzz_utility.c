@@ -30,8 +30,12 @@ static int         MSG_SIZE        = -1;
 static int         TCP_LIST_STREAM = -1;
 static int         TCP_COMM_STREAM = -1;
 static uint8_t*    STREAM_SEND_BUF = NULL;
+static int         ROBOT_ID        = -1;
 
 #define TCP_LIST_STREAM_PORT "24580"
+
+static const int RAB_PACKAGE = 0;
+static const int ABS_POS_PACKAGE = 1;
 
 /* Pointer to a function that sends a message on the stream */
 static void (*STREAM_SEND)() = NULL;
@@ -42,7 +46,12 @@ static pthread_t INCOMING_MSG_THREAD;
 /****************************************/
 /****************************************/
 
-
+struct absolute_position{
+   float x;
+   float y;
+   float theta;
+   int robot_id;
+};
 
 
 /* PThread mutex to manage the list of incoming packets */
@@ -61,9 +70,9 @@ struct incoming_packet_s {
 /* The list of incoming packets */
 static struct incoming_packet_s* PACKETS_FIRST = NULL;
 static struct incoming_packet_s* PACKETS_LAST  = NULL;
+static struct absolute_position* ABS_POSITION = NULL;
 
-void incoming_packet_add(int id,
-                         const uint8_t* pl) {
+void incoming_packet_add(int id, const uint8_t* pl) {
    /* Create packet */
    struct incoming_packet_s* p =
       (struct incoming_packet_s*)malloc(sizeof(struct incoming_packet_s));
@@ -116,8 +125,7 @@ void* buzz_stream_incoming_thread_tcp(void* args) {
          /* fprintf(stderr, ", %zd left, %zd tot\n", left, tot); */
       }
       /* Done receiving data, add packet to list */
-      incoming_packet_add(*(uint16_t*)buf,
-                          buf + sizeof(uint16_t));
+      incoming_packet_add(*(uint16_t*)buf, buf + sizeof(uint16_t));
    }
 }
 
@@ -283,6 +291,8 @@ void Register(const char *str, float f_value) {
    buzzvm_gstore(VM);
 }
 
+/****************************************/
+/****************************************/
 
 
 /****************************************/
@@ -351,10 +361,10 @@ int buzz_script_set(const char* bo_filename,
    gethostname(hstnm, 30);
    /* Make numeric id from hostname */
    /* NOTE: here we assume that the hostname is in the format Knn */
-   int id = strtol(hstnm + 1, NULL, 10);
+   ROBOT_ID = strtol(hstnm + 1, NULL, 10);
    /* Reset the Buzz VM */
    if(VM) buzzvm_destroy(&VM);
-   VM = buzzvm_new(id);
+   VM = buzzvm_new(ROBOT_ID);
    /* Get rid of debug info */
    if(DBG_INFO) buzzdebug_destroy(&DBG_INFO);
    DBG_INFO = buzzdebug_new();
@@ -461,46 +471,66 @@ void buzz_script_step() {
       /* Save next packet */
       n = PACKETS_FIRST->next;
       /* Go through the payload and extract the messages */
+
       uint8_t* pl = PACKETS_FIRST->payload;
       float x=0.0,y=0.0,t=0.0;
+      int message_type = -1;
+      int robot_id = -1;
       size_t tot = 0;
+      memcpy(&message_type, pl+tot, sizeof(int));
+      tot += sizeof(int);
       memcpy(&x, pl+tot, sizeof(float));
       tot += sizeof(float);
       memcpy(&y, pl+tot, sizeof(float));
       tot += sizeof(float);
       memcpy(&t, pl+tot, sizeof(float));
       tot += sizeof(float);
+      memcpy(&robot_id, pl+tot, sizeof(int));
+      tot += sizeof(int);
       //add work position information
 
-
       //fprintf(stderr, "in msg sizeof tot :%i\n",tot );
+         //printf("BUZZ: pos: %f, %f, %f, type: %d \n", x, y, t, message_type);
+      if(message_type == ABS_POS_PACKAGE){
+            //printf("BUZZ: pos: %f, %f, %f, type: %d \n", x, y, t, message_type);
+            //printf("Do extra stuff... %d, %d", message_type, ABS_POS_PACKAGE);
+            //buzzkh4_update_absolute_position(VM, x, y, t);
+            if(ABS_POSITION == NULL)
+               ABS_POSITION = (struct absolute_position*)malloc(sizeof(struct absolute_position));
+            ABS_POSITION->x = x;
+            ABS_POSITION->y = y;
+            ABS_POSITION->theta = t;
+            ABS_POSITION->robot_id = robot_id;
+      } else {
+         buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);     
+      } 
+         uint16_t msgsz;
+         /* fprintf(stderr, "[DEBUG] Processing packet %p from %d\n", */
+         /*         PACKETS_FIRST, */
+         /*         PACKETS_FIRST->id); */
+         /* fprintf(stderr, "[DEBUG] recv sz = %u\n", */
+         /*         *(uint16_t*)pl); */
 
-      buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);      
-      uint16_t msgsz;
-      /* fprintf(stderr, "[DEBUG] Processing packet %p from %d\n", */
-      /*         PACKETS_FIRST, */
-      /*         PACKETS_FIRST->id); */
-      /* fprintf(stderr, "[DEBUG] recv sz = %u\n", */
-      /*         *(uint16_t*)pl); */
-
-            /* Update Buzz neighbors information */
+               /* Update Buzz neighbors information */
 
 
-      do {
-         /* Get payload size */
-         msgsz = *(uint16_t*)(pl + tot);
-         tot += sizeof(uint16_t);
-         /* fprintf(stderr, "[DEBUG]    msg size = %u, tot = %zu\n", msgsz, tot); */
-         /* Make sure the message payload can be read */
-         if(msgsz > 0 && msgsz <= MSG_SIZE - tot) {
-            /* Append message to the Buzz input message queue */
-            buzzinmsg_queue_append(
-               VM, PACKETS_FIRST->id,
-               buzzmsg_payload_frombuffer(pl + tot, msgsz));
-            tot += msgsz;
-            /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
+         do {
+            /* Get payload size */
+            msgsz = *(uint16_t*)(pl + tot);
+            tot += sizeof(uint16_t);
+            /* fprintf(stderr, "[DEBUG]    msg size = %u, tot = %zu\n", msgsz, tot); */
+            /* Make sure the message payload can be read */
+            if(msgsz > 0 && msgsz <= MSG_SIZE - tot) {
+               /* Append message to the Buzz input message queue */
+               buzzinmsg_queue_append(
+                  VM, PACKETS_FIRST->id,
+                  buzzmsg_payload_frombuffer(pl + tot, msgsz));
+               tot += msgsz;
+               /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
+            }
          }
-      }
+      
+
       while(MSG_SIZE - tot > sizeof(uint16_t) && msgsz > 0);
       /* Erase packet */
       /* fprintf(stderr, "[DEBUG] Done processing packet %p from %d\n", */
@@ -525,7 +555,13 @@ void buzz_script_step() {
    buzzkh4_update_battery(VM);
    buzzkh4_update_ir(VM);
    buzzkh4_update_ir_new(VM);
-
+   if(ABS_POSITION != NULL && ABS_POSITION->robot_id == ROBOT_ID){
+      printf("position: %d, %d", ABS_POSITION->robot_id, ROBOT_ID );
+      buzzkh4_update_absolute_position(VM, ABS_POSITION->x, ABS_POSITION->y, ABS_POSITION->theta);
+      //free(ABS_POSITION);
+   } else {
+      buzzkh4_update_absolute_position(VM, -1000.0, -1000.0, -1000.0);
+   }
    /*
     * Call Buzz step() function
     */
