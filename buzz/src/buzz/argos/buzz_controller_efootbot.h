@@ -7,7 +7,6 @@
 #include "/home/ivan/dev/argos-custom/argos3/plugins/robots/e-footbot/control_interface/ci_efootbot_proximity_sensor.h"
 #include "/home/ivan/dev/argos-custom/argos3/plugins/robots/e-footbot/control_interface/ci_battery_sensor.h"
 
-
 using namespace argos;
 
 class CBuzzControllerEFootBot : public CBuzzController {

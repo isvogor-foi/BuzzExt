@@ -39,6 +39,9 @@ static void (*STREAM_SEND)() = NULL;
 /* PThread handle to manage incoming messages */
 static pthread_t INCOMING_MSG_THREAD;
 
+float a_x = 0.0, a_y = 0.0, a_t = 0.0;
+static int ROBOT_ID = -1;
+
 /****************************************/
 /****************************************/
 
@@ -351,10 +354,10 @@ int buzz_script_set(const char* bo_filename,
    gethostname(hstnm, 30);
    /* Make numeric id from hostname */
    /* NOTE: here we assume that the hostname is in the format Knn */
-   int id = strtol(hstnm + 1, NULL, 10);
+   ROBOT_ID = strtol(hstnm + 1, NULL, 10);
    /* Reset the Buzz VM */
    if(VM) buzzvm_destroy(&VM);
-   VM = buzzvm_new(id);
+   VM = buzzvm_new(ROBOT_ID);
    /* Get rid of debug info */
    if(DBG_INFO) buzzdebug_destroy(&DBG_INFO);
    DBG_INFO = buzzdebug_new();
@@ -470,6 +473,25 @@ void buzz_script_step() {
       tot += sizeof(float);
       memcpy(&t, pl+tot, sizeof(float));
       tot += sizeof(float);
+      float ta_x = 0.0, ta_y = 0.0, ta_t = 0.0;
+      int robot_id = 0.0;
+
+      memcpy(&robot_id, pl+tot, sizeof(int));
+      tot += sizeof(int);
+      memcpy(&ta_x, pl+tot, sizeof(float));
+      tot += sizeof(float);
+      memcpy(&ta_y, pl+tot, sizeof(float));
+      tot += sizeof(float);
+      memcpy(&ta_t, pl+tot, sizeof(float));
+      tot += sizeof(float);
+
+      if(ROBOT_ID == robot_id){
+         //printf("Robot %d, %d, %f, %f \n", robot_id, ROBOT_ID, ta_x, ta_y);
+         a_x = ta_x;
+         a_y = ta_y;
+         a_t = ta_t;
+      }
+                
       //add work position information
 
 
@@ -525,6 +547,12 @@ void buzz_script_step() {
    buzzkh4_update_battery(VM);
    buzzkh4_update_ir(VM);
    buzzkh4_update_ir_new(VM);
+
+   pthread_mutex_lock(&INCOMING_PACKET_MUTEX);
+   //printf("Robot %d, %d, %f, %f \n", robot_id, ROBOT_ID, a_x, a_y);
+   buzzkh4_abs_position(VM, a_x, a_y, a_t);
+   pthread_mutex_unlock(&INCOMING_PACKET_MUTEX);
+
 
    /*
     * Call Buzz step() function

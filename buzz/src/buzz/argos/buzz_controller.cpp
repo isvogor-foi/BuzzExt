@@ -105,6 +105,19 @@ int BuzzDebug(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
+int BuzzGetClock(buzzvm_t vm){
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+   clock_t time = clock();
+   double time_in_sec = time * 1000.0 / CLOCKS_PER_SEC;
+   buzzvm_pushf(vm, (float)time_in_sec);
+   return buzzvm_ret1(vm);
+}
+
+
+/****************************************/
+/****************************************/
+
 CBuzzController::CBuzzController() :
    m_pcRABA(NULL),
    m_pcRABS(NULL),
@@ -126,7 +139,6 @@ void CBuzzController::Init(TConfigurationNode& t_node) {
       /* Get pointers to devices */
       m_pcRABA   = GetActuator<CCI_RangeAndBearingActuator>("range_and_bearing");
       m_pcRABS   = GetSensor  <CCI_RangeAndBearingSensor  >("range_and_bearing");
-      m_pcProximity = GetSensor <CCI_ProximitySensor> ("proximity");
       try {
          m_pcPos = GetSensor  <CCI_PositioningSensor>("positioning");
       }
@@ -324,6 +336,10 @@ buzzvm_state CBuzzController::RegisterFunctions() {
    /* Get Stigmergy Table */
    buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "get_stigmergy_int_keys", 1));
    buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzGetStigmergyIntKeys));
+   buzzvm_gstore(m_tBuzzVM);
+   /*timing*/
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "get_clock", 1));
+   buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzGetClock));
    buzzvm_gstore(m_tBuzzVM);
    return m_tBuzzVM->state;
 }
