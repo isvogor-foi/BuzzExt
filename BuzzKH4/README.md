@@ -10,6 +10,8 @@ git clone https://github.com/MISTLab/Buzz.git
 
 cd Buzz && mkdir build && cd build/
 
+NOTE: Make sure you have installed multiarch 
+
 cmake -DCMAKE_TOOLCHAIN_FILE=cmake/TargetKheperaIV.cmake ../src/
 
 sudo make install

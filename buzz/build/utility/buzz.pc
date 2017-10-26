@@ -1,4 +1,4 @@
-prefix=/usr/local
+prefix=/usr/local/khepera4-yocto/build/tmp/sysroots/i686-linux/usr
 exec_prefix=${prefix}
 includedir=${prefix}/include
 libdir=${exec_prefix}/lib

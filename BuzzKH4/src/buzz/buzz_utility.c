@@ -330,6 +330,11 @@ static int buzz_register_hooks() {
    buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzStopProcessing));
    buzzvm_gstore(VM);
 
+   /* Floor */
+   buzzvm_pushs(VM, buzzvm_string_register(VM, "floor", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4math_floor));
+   buzzvm_gstore(VM);
+
    /* GenerateForest */
    /*
    buzzvm_pushs(VM, buzzvm_string_register(VM, "generate_forest", 1));
@@ -497,7 +502,11 @@ void buzz_script_step() {
 
       //fprintf(stderr, "in msg sizeof tot :%i\n",tot );
 
-      buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);      
+      // don't add self as a neigbor
+      if(ROBOT_ID != robot_id){  
+         buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);      
+      }
+
       uint16_t msgsz;
       /* fprintf(stderr, "[DEBUG] Processing packet %p from %d\n", */
       /*         PACKETS_FIRST, */
@@ -613,7 +622,7 @@ void buzz_script_step() {
    buzzvm_process_outmsgs(VM);
    STREAM_SEND();
    /* Sleep */
-   usleep(100000);
+   usleep(1000000);
    /* Print swarm */
    //buzzswarm_members_print(stdout, VM->swarmmembers, VM->robot);
    /* Check swarm state */

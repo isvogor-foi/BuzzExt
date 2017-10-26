@@ -12,6 +12,11 @@ static const double processing_discharge = 0.05;
 static const double moving_discharge = 0.1;
 static const double charging_current = 1;
 
+static const float sampling_rate = 0.01;
+static const float filter_time_const = 0.05;
+
+float ir_table [8] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
 int TurningMechanism = 0;
 float soc = 100;
 double discharge_current = 0;
@@ -58,24 +63,30 @@ int buzzkh4_print(buzzvm_t vm) {
 }
 
 /****************************************/
-void WrapValue(float *t_value) {
-         while(*t_value > 3.1416) *t_value -= 2*3.1416;
-         while(*t_value < -3.1416) *t_value += 2*3.1416;
+float WrapValue(float t_value) {
+  while(t_value >= 3.1416) t_value -= 2.0 * 3.1416;
+  while(t_value <= -3.1416) t_value += 2.0 * 3.1416;
+  return t_value;
 }
 
 void SetWheelSpeedsFromVector(float* vec) {
-   float HardTurnOnAngleThreshold = 1.57; //90.0 deg
-   float SoftTurnOnAngleThreshold = 1.2217; //70.0 deg
-   float NoTurnAngleThreshold = 0.1745; //10.0 deg
-   float MaxSpeed = 30.0;
+   float HEADING_LEN_PARAM = 700.0;
+
+   float HardTurnOnAngleThreshold = 2.0944; //120.0 deg
+   float SoftTurnOnAngleThreshold = 0.785398; //70.0 deg
+   //float SoftTurnOnAngleThreshold = 0.872665; // 40.0 deg
+   float NoTurnAngleThreshold = 0.2618; //15.0 deg
+   float MaxSpeed = 150.0;
+   float MaxTurningSpeed = 40.0;
 //printf("Got (%.2f,%.2f), turning is %i\n", vec[0], vec[1], TurningMechanism);
    /* Get the heading angle */
    //CRadians cHeadingAngle = c_heading.Angle().SignedNormalize();
    float cHeadingAngle = atan2 (vec[1],vec[0]);
-   WrapValue(&cHeadingAngle);
+   cHeadingAngle = WrapValue(cHeadingAngle);
    /* Get the length of the heading vector */
    float fHeadingLength = vec[0]*vec[0]+vec[1]*vec[1];
-   fHeadingLength = sqrt(fHeadingLength)*200.0;
+   //printf("Heading len: %f, \n", fHeadingLength);
+   fHeadingLength = sqrt(fHeadingLength)*HEADING_LEN_PARAM;
 //printf("Compute distance %.2f and angle %.2f\n", fHeadingLength, cHeadingAngle);
    /* Clamp the speed so that it's not greater than MaxSpeed */
    float fBaseAngularWheelSpeed = MIN((float)fHeadingLength, (float)MaxSpeed);
@@ -99,28 +110,34 @@ void SetWheelSpeedsFromVector(float* vec) {
       TurningMechanism = 1;
    }
 
+   //printf("Angle: %f\n", fabs(cHeadingAngle));
+
    /* Wheel speeds based on current turning state */
    float fSpeed1 = 0 , fSpeed2 = 0;
    switch(TurningMechanism) {
       case 0: {
          /* Just go straight */
          fSpeed1 = fBaseAngularWheelSpeed;
-         fSpeed2 = fBaseAngularWheelSpeed;
+         fSpeed2 = fBaseAngularWheelSpeed ;
+         //printf("Going straight: %f, %f \n", fSpeed1, fSpeed2);
          break;
       }
 
       case 1: { //soft turn
          /* Both wheels go straight, but one is faster than the other */
          float fSpeedFactor = (HardTurnOnAngleThreshold - abs(cHeadingAngle)) / HardTurnOnAngleThreshold;
-         fSpeed1 = fBaseAngularWheelSpeed - fBaseAngularWheelSpeed * (1.0 - fSpeedFactor);
-         fSpeed2 = fBaseAngularWheelSpeed + fBaseAngularWheelSpeed * (1.0 - fSpeedFactor);
+         fSpeed1 = fBaseAngularWheelSpeed - fBaseAngularWheelSpeed * (1.0 - fSpeedFactor); // * 1.2;
+         fSpeed2 = fBaseAngularWheelSpeed + fBaseAngularWheelSpeed * (1.0 - fSpeedFactor); // * 1.2;
+         //printf("Soft turning: %f, %f :: \t %f, %f. \n", fSpeedFactor, fBaseAngularWheelSpeed, fSpeed1, fSpeed2);
+
          break;
       }
 
       case 2: { //hard turn
          /* Opposite wheel speeds */
-         fSpeed1 = -MaxSpeed;
-         fSpeed2 =  MaxSpeed;
+         //printf("Hard turn: %f \n", MaxSpeed);
+         fSpeed1 = -MaxTurningSpeed;
+         fSpeed2 =  MaxTurningSpeed;
          break;
       }
    }
@@ -134,12 +151,13 @@ void SetWheelSpeedsFromVector(float* vec) {
    }
    else {
       /* Turn Right */
-      fLeftWheelSpeed  = fSpeed2*5;
-      fRightWheelSpeed = fSpeed1*5;
+      fLeftWheelSpeed  = fSpeed2;
+      fRightWheelSpeed = fSpeed1;
    }
    /* Finally, set the wheel speeds */
-//printf("Sending %.2f - %.2f to the wheels (%i)\n",fLeftWheelSpeed, fRightWheelSpeed, TurningMechanism);
-  kh4_set_speed(fLeftWheelSpeed, fRightWheelSpeed,DSPIC);
+   //printf("Sending %.2f - %.2f to the wheels (%i)\n",fLeftWheelSpeed, fRightWheelSpeed, TurningMechanism);
+   //kh4_set_speed(fLeftWheelSpeed*2.5, fRightWheelSpeed*2.5, DSPIC);
+   kh4_set_speed(fLeftWheelSpeed, fRightWheelSpeed, DSPIC);
 }
 // /****************************************/
 int BuzzGoTo(buzzvm_t vm) {
@@ -203,6 +221,20 @@ int buzzkh4_set_leds(buzzvm_t vm) {
 /****************************************/
 
 
+/****************************************/
+/****************************************/
+int buzzkh4math_floor(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 1);
+   /* Get argument */
+   buzzvm_lload(vm, 1);
+   buzzobj_t o = buzzvm_stack_at(vm, 1);
+   if(o->o.type == BUZZTYPE_FLOAT) 
+    buzzvm_pushi(vm, floor(o->f.value));
+   //else buzzmath_error(o);
+   /* Return result */
+   return buzzvm_ret1(vm);
+}
+
 int buzzkh4_update_simulated_battery(buzzvm_t vm) {
   soc += discharge_current;
   //Register("soc", soc);
@@ -261,6 +293,7 @@ int buzzkh4_abs_position(buzzvm_t vm, float x, float y, float theta) {
 
 int buzzkh4_update_ir_new(buzzvm_t vm) {
    static char PROXIMITY_BUF[256];
+   float ir_gain = expf( - sampling_rate / filter_time_const);
    int i;
    kh4_proximity_ir(PROXIMITY_BUF, DSPIC);
    buzzvm_pushs(vm, buzzvm_string_register(vm, "proximity", 1));
@@ -268,14 +301,25 @@ int buzzkh4_update_ir_new(buzzvm_t vm) {
    buzzobj_t tProxTable = buzzvm_stack_at(vm, 1);
    buzzvm_gstore(vm);
    buzzobj_t tProxRead;
+
+   for(i = 0; i < 8; i++){
+      /* Fill in the read */
+      int a = (i + 4) % 8;
+      float current_value = (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8) / 1024.0f;
+      float current_value_filtered = ir_table[i] + (1 - ir_gain) * (current_value - ir_table[i]);
+      if(fabs(current_value_filtered - ir_table[i]) < 0.3){
+        ir_table[i] = current_value_filtered;
+      } 
+   }
+
    for(i = 0; i < 8; i++) {
       buzzvm_pusht(vm);
       tProxRead = buzzvm_stack_at(vm, 1);
       buzzvm_pop(vm);
       /* Fill in the read */
-      int a = (i + 3) % 8;
+      //int a = (i + 4) % 8;
       //TablePutI(tProxRead, "value", (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8), vm);
-      TablePutF(tProxRead, "value", (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8) / 1024.0f, vm);
+      TablePutF(tProxRead, "value", ir_table[i], vm);
       int angle = 7 - i;
       TablePutI(tProxRead, "angle", angle * 45, vm);
       /* Store read table in the proximity table */

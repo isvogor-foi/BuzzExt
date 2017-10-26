@@ -41,6 +41,9 @@ extern int buzzkh4_update_battery(buzzvm_t vm);
 extern int buzzkh4_update_simulated_battery(buzzvm_t vm);
 
 extern int buzzkh4_abs_position(buzzvm_t vm, float x, float y, float theta);
+
+extern int buzzkh4math_floor(buzzvm_t vm);
+
 /*
  * Updates IR information in Buzz
  * Proximity and ground sensors
