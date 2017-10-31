@@ -12,8 +12,11 @@ static const double processing_discharge = 0.05;
 static const double moving_discharge = 0.1;
 static const double charging_current = 1;
 
+//static const float sampling_rate = 0.01;
+//static const float filter_time_const = 0.1;
+
 static const float sampling_rate = 0.01;
-static const float filter_time_const = 0.05;
+static const float filter_time_const = 0.02;
 
 float ir_table [8] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
@@ -63,13 +66,99 @@ int buzzkh4_print(buzzvm_t vm) {
 }
 
 /****************************************/
-float WrapValue(float t_value) {
+
+float WrapValue2(float t_value) {
   while(t_value >= 3.1416) t_value -= 2.0 * 3.1416;
   while(t_value <= -3.1416) t_value += 2.0 * 3.1416;
   return t_value;
 }
 
+
+void WrapValue(float *t_value) {
+         while(*t_value > 3.1416) *t_value -= 2*3.1416;
+         while(*t_value < -3.1416) *t_value += 2*3.1416;
+}
+
 void SetWheelSpeedsFromVector(float* vec) {
+   float HardTurnOnAngleThreshold = 1.57; //90.0 deg
+   float SoftTurnOnAngleThreshold = 0.17;//1.2217; //70.0 deg
+   float NoTurnAngleThreshold = 0.17; //10.0 deg
+   float MaxSpeed = 80.0;
+   //printf("Got (%.2f,%.2f), turning is %i\n", vec[0], vec[1], TurningMechanism);
+   /* Get the heading angle */
+   //CRadians cHeadingAngle = c_heading.Angle().SignedNormalize();
+   float cHeadingAngle = atan2 (vec[1],vec[0]);
+   WrapValue(&cHeadingAngle);
+   /* Get the length of the heading vector */
+   float fHeadingLength = vec[0]*vec[0]+vec[1]*vec[1];
+   fHeadingLength = sqrt(fHeadingLength);
+//printf("Compute distance %.2f and angle %.2f\n", fHeadingLength, cHeadingAngle);
+   /* Clamp the speed so that it's not greater than MaxSpeed */
+   float fBaseAngularWheelSpeed = MIN((float)fHeadingLength, (float)MaxSpeed);
+//printf("fBaseAngularWheelSpeed = %.2f\n", fBaseAngularWheelSpeed);
+
+   /* Turning state switching conditions */
+   if(fabs(cHeadingAngle) <= NoTurnAngleThreshold) {
+      /* No Turn, heading angle very small */
+//printf("HERE1\n");
+      TurningMechanism = 0;
+   }
+   else if(fabs(cHeadingAngle) > HardTurnOnAngleThreshold) {
+      /* Hard Turn, heading angle very large */
+//printf("HERE2\n");
+      TurningMechanism = 2;
+   }
+   else if(
+           fabs(cHeadingAngle) > SoftTurnOnAngleThreshold) {
+      /* Soft Turn, heading angle in between the two cases */
+//printf("HERE3\n");
+      TurningMechanism = 2;
+   }
+
+   /* Wheel speeds based on current turning state */
+   float fSpeed1 = 0 , fSpeed2 = 0;
+   switch(TurningMechanism) {
+      case 0: {
+         /* Just go straight */
+         fSpeed1 = fBaseAngularWheelSpeed;
+         fSpeed2 = fBaseAngularWheelSpeed;
+         break;
+      }
+
+      case 1: { //soft turn
+         /* Both wheels go straight, but one is faster than the other */
+         float fSpeedFactor = (HardTurnOnAngleThreshold - abs(cHeadingAngle)) / HardTurnOnAngleThreshold;
+         fSpeed1 = (fBaseAngularWheelSpeed - fBaseAngularWheelSpeed * (1.0 - fSpeedFactor)) * 1.5;
+         fSpeed2 = (fBaseAngularWheelSpeed + fBaseAngularWheelSpeed * (1.0 - fSpeedFactor)) * 1.5;
+         break;
+      }
+
+      case 2: { //hard turn
+         /* Opposite wheel speeds */
+         fSpeed1 = -MaxSpeed * 0.3;
+         fSpeed2 =  MaxSpeed * 0.3;
+         break;
+      }
+   }
+
+   /* Apply the calculated speeds to the appropriate wheels */
+   float fLeftWheelSpeed, fRightWheelSpeed;
+   if(cHeadingAngle > 0) {
+      /* Turn Left */
+      fLeftWheelSpeed  = fSpeed1;
+      fRightWheelSpeed = fSpeed2;
+   }
+   else {
+      /* Turn Right */
+      fLeftWheelSpeed  = fSpeed2;
+      fRightWheelSpeed = fSpeed1;
+   }
+   /* Finally, set the wheel speeds */
+//printf("Sending %.2f - %.2f to the wheels (%i)\n",fLeftWheelSpeed, fRightWheelSpeed, TurningMechanism);
+  kh4_set_speed(fLeftWheelSpeed, fRightWheelSpeed,DSPIC);
+}
+
+void SetWheelSpeedsFromVector2(float* vec) {
    float HEADING_LEN_PARAM = 700.0;
 
    float HardTurnOnAngleThreshold = 2.0944; //120.0 deg
@@ -82,7 +171,7 @@ void SetWheelSpeedsFromVector(float* vec) {
    /* Get the heading angle */
    //CRadians cHeadingAngle = c_heading.Angle().SignedNormalize();
    float cHeadingAngle = atan2 (vec[1],vec[0]);
-   cHeadingAngle = WrapValue(cHeadingAngle);
+   cHeadingAngle = WrapValue2(cHeadingAngle);
    /* Get the length of the heading vector */
    float fHeadingLength = vec[0]*vec[0]+vec[1]*vec[1];
    //printf("Heading len: %f, \n", fHeadingLength);
@@ -229,6 +318,20 @@ int buzzkh4math_floor(buzzvm_t vm) {
    buzzvm_lload(vm, 1);
    buzzobj_t o = buzzvm_stack_at(vm, 1);
    if(o->o.type == BUZZTYPE_FLOAT) 
+    buzzvm_pushi(vm, round(o->f.value));
+   //else buzzmath_error(o);
+   /* Return result */
+   return buzzvm_ret1(vm);
+}
+
+/****************************************/
+/****************************************/
+int buzzkh4math_round(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 1);
+   /* Get argument */
+   buzzvm_lload(vm, 1);
+   buzzobj_t o = buzzvm_stack_at(vm, 1);
+   if(o->o.type == BUZZTYPE_FLOAT) 
     buzzvm_pushi(vm, floor(o->f.value));
    //else buzzmath_error(o);
    /* Return result */
@@ -307,7 +410,7 @@ int buzzkh4_update_ir_new(buzzvm_t vm) {
       int a = (i + 4) % 8;
       float current_value = (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8) / 1024.0f;
       float current_value_filtered = ir_table[i] + (1 - ir_gain) * (current_value - ir_table[i]);
-      if(fabs(current_value_filtered - ir_table[i]) < 0.3){
+      if(fabs(current_value_filtered - ir_table[i]) < 0.15){
         ir_table[i] = current_value_filtered;
       } 
    }

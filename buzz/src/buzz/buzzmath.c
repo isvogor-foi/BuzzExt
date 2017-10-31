@@ -111,6 +111,8 @@ int buzzmath_register(buzzvm_t vm) {
    function_register(atan);
    function_register(min);
    function_register(max);
+   function_register(floor);
+   function_register(round);
    /* Register constants */
    constant_register("pi", 3.14159265358979323846);
    /* Push "math.rng" table symbol */
@@ -146,6 +148,33 @@ int buzzmath_abs(buzzvm_t vm) {
    buzzobj_t o = buzzvm_stack_at(vm, 1);
    if(o->o.type == BUZZTYPE_FLOAT)    buzzvm_pushf(vm, fabsf(o->f.value));
    else if(o->o.type == BUZZTYPE_INT) buzzvm_pushi(vm, abs(o->i.value));
+   else buzzmath_error(o);
+   /* Return result */
+   return buzzvm_ret1(vm);
+}
+
+/****************************************/
+/****************************************/
+int buzzmath_floor(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 1);
+   buzzvm_lload(vm, 1);
+   buzzobj_t o = buzzvm_stack_at(vm, 1);
+   if(o->o.type == BUZZTYPE_FLOAT) 
+    buzzvm_pushi(vm, floor(o->f.value));
+   else buzzmath_error(o);
+   /* Return result */
+   return buzzvm_ret1(vm);
+}
+
+/****************************************/
+/****************************************/
+int buzzmath_round(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 1);
+   /* Get argument */
+   buzzvm_lload(vm, 1);
+   buzzobj_t o = buzzvm_stack_at(vm, 1);
+   if(o->o.type == BUZZTYPE_FLOAT) 
+    buzzvm_pushi(vm, round(o->f.value));
    else buzzmath_error(o);
    /* Return result */
    return buzzvm_ret1(vm);

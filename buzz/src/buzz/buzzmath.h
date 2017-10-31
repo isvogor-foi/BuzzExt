@@ -37,6 +37,10 @@ extern "C" {
 
    extern int buzzmath_max(buzzvm_t vm);
 
+   extern int buzzmath_floor(buzzvm_t vm);
+
+   extern int buzzmath_round(buzzvm_t vm);
+
    extern int buzzmath_rng_setseed(buzzvm_t vm);
 
    extern int buzzmath_rng_uniform(buzzvm_t vm);

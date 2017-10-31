@@ -142,7 +142,9 @@ void CBuzzController::Init(TConfigurationNode& t_node) {
       try {
          m_pcPos = GetSensor  <CCI_PositioningSensor>("positioning");
       }
-      catch(CARGoSException& ex) {}
+      catch(CARGoSException& ex) {
+          THROW_ARGOSEXCEPTION_NESTED("Failed to load positioning sensor.....", ex);
+      }
       /* Get the script name */
       std::string strBCFName;
       GetNodeAttributeOrDefault(t_node, "bytecode_file", strBCFName, strBCFName);
