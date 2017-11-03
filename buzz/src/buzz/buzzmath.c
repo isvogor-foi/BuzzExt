@@ -175,6 +175,8 @@ int buzzmath_round(buzzvm_t vm) {
    buzzobj_t o = buzzvm_stack_at(vm, 1);
    if(o->o.type == BUZZTYPE_FLOAT) 
     buzzvm_pushi(vm, round(o->f.value));
+   else if(o->o.type == BUZZTYPE_INT)
+    buzzvm_pushi(vm, o->i.value);
    else buzzmath_error(o);
    /* Return result */
    return buzzvm_ret1(vm);

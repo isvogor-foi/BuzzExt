@@ -48,6 +48,8 @@ public:
    void SetWheels(Real f_left_speed, Real f_right_speed);
    void SetWheelSpeedsFromVector(const CVector2& c_heading);
    void SetLEDs(const CColor& c_color);
+   void SetArgosMap(std::string map);
+   std::string GetArgosMap();
 
 private:
 
@@ -61,6 +63,8 @@ protected:
    CCI_LEDsActuator* m_pcLEDs;
    /* Pointer to the proximity sensor */
    CCI_FootBotProximitySensor* m_pcProximity;
+
+   std::string m_map_string = "";
 
    /* The turning parameters. */
    SWheelTurningParams m_sWheelTurningParams;

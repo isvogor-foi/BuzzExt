@@ -124,6 +124,24 @@ int BuzzSetLEDs(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
+int BuzzSetArgosMap(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 1);
+   /* Push the color components */
+   buzzvm_lload(vm, 1);
+   buzzvm_type_assert(vm, 1, BUZZTYPE_STRING);
+   std::string text = buzzvm_stack_at(vm, 1)->s.value.str;
+   /* Get pointer to the controller */
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+   /* Call function */
+   //printf("Value: %s", buzzvm_stack_at(vm, 1)->s.value.str);
+   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->SetArgosMap(text);
+   return buzzvm_ret0(vm);
+}
+
+/****************************************/
+/****************************************/
+
 CBuzzControllerFootBot::CBuzzControllerFootBot() :
    m_pcWheels(NULL),
    m_pcLEDs(NULL),
@@ -278,6 +296,20 @@ void CBuzzControllerFootBot::SetWheels(Real f_left_speed,
 /****************************************/
 /****************************************/
 
+void CBuzzControllerFootBot::SetArgosMap(std::string map) {
+	m_map_string = map;
+}
+
+/****************************************/
+/****************************************/
+
+std::string CBuzzControllerFootBot::GetArgosMap() {
+	return m_map_string;
+}
+
+/****************************************/
+/****************************************/
+
 void CBuzzControllerFootBot::SetLEDs(const CColor& c_color) {
    m_pcLEDs->SetAllColors(c_color);
 }
@@ -304,6 +336,11 @@ buzzvm_state CBuzzControllerFootBot::RegisterFunctions() {
       buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetLEDs));
       buzzvm_gstore(m_tBuzzVM);
    }
+   /* BuzzSetMap */
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "set_argos_map", 1));
+   buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetArgosMap));
+   buzzvm_gstore(m_tBuzzVM);
+
    return m_tBuzzVM->state;
 }
 

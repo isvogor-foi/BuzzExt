@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <stdarg.h>
 
 /****************************************/
 /****************************************/
@@ -101,7 +102,6 @@ int buzzstring_sub(buzzvm_t vm) {
    return buzzvm_ret1(vm);
 }
 
-/****************************************/
 /****************************************/
 
 int buzzstring_concat(buzzvm_t vm) {
