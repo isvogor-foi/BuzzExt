@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <khepera/khepera.h>
 
 static int done = 0;
 
@@ -58,6 +59,10 @@ int main(int argc, char** argv) {
    /* Initialize the robot */
    kh4_setup();
    /* Set the Buzz bytecode */
+   // enable ultrasound
+    int mask = 1 | 2 | 4 | 8 | 16;
+    kh4_ultrasound_enable(mask);
+
    if(buzz_script_set(bcfname, dbgfname)) {
       /* Main loop */
       while(!done && !buzz_script_done())

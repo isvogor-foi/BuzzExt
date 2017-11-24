@@ -16,7 +16,7 @@ static const double charging_current = 1;
 //static const float filter_time_const = 0.1;
 
 static const float sampling_rate = 0.01;
-static const float filter_time_const = 0.02;
+static const float filter_time_const = 0.06;
 
 float ir_table [8] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
@@ -406,22 +406,22 @@ int buzzkh4_update_ir_new(buzzvm_t vm) {
    buzzobj_t tProxRead;
 
    for(i = 0; i < 8; i++){
-      /* Fill in the read */
       int a = (i + 4) % 8;
-      float current_value = (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8) / 1024.0f;
+      float current_value = (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8);// / 1024.0f;
       float current_value_filtered = ir_table[i] + (1 - ir_gain) * (current_value - ir_table[i]);
-      if(fabs(current_value_filtered - ir_table[i]) < 0.15){
+      //if(fabs(current_value_filtered - ir_table[i]) < 0.15){
+      if(fabs(current_value_filtered - ir_table[i]) < (0.150 * 1024.0)){
         ir_table[i] = current_value_filtered;
       } 
    }
-
+   
    for(i = 0; i < 8; i++) {
       buzzvm_pusht(vm);
       tProxRead = buzzvm_stack_at(vm, 1);
       buzzvm_pop(vm);
       /* Fill in the read */
       //int a = (i + 4) % 8;
-      //TablePutI(tProxRead, "value", (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8), vm);
+      //TablePutI(tProxRead, "value", (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8 / 1024.0f;), vm);
       TablePutF(tProxRead, "value", ir_table[i], vm);
       int angle = 7 - i;
       TablePutI(tProxRead, "angle", angle * 45, vm);
@@ -478,6 +478,24 @@ int buzzkh4_update_ir(buzzvm_t vm) {
       buzzvm_dup(vm);
       buzzvm_pushi(vm, i-7);
       buzzvm_pushi(vm, (PROXIMITY_BUF[i*2] | PROXIMITY_BUF[i*2+1] << 8));
+      buzzvm_tput(vm);
+   }
+   buzzvm_gstore(vm);
+   return vm->state;
+}
+
+/****************************************/
+
+int buzzkh4_update_snr(buzzvm_t vm) {
+   static char USND_BUF[256];
+   int i;
+   kh4_ultrasound_p(USND_BUF, DSPIC);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "proximity_usnd", 1));
+   buzzvm_pusht(vm);
+   for(i = 0; i < 5; i++) {
+      buzzvm_dup(vm);
+      buzzvm_pushi(vm, i+1);
+      buzzvm_pushi(vm, (USND_BUF[i*2] | USND_BUF[i*2+1] << 8));
       buzzvm_tput(vm);
    }
    buzzvm_gstore(vm);

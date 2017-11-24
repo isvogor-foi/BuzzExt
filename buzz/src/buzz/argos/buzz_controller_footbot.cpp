@@ -126,7 +126,6 @@ int BuzzSetLEDs(buzzvm_t vm) {
 
 int BuzzSetArgosMap(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 1);
-   /* Push the color components */
    buzzvm_lload(vm, 1);
    buzzvm_type_assert(vm, 1, BUZZTYPE_STRING);
    std::string text = buzzvm_stack_at(vm, 1)->s.value.str;
@@ -141,6 +140,70 @@ int BuzzSetArgosMap(buzzvm_t vm) {
 
 /****************************************/
 /****************************************/
+
+int BuzzShowCoordinateSystem(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 4);
+   buzzvm_lload(vm, 1);
+   buzzvm_lload(vm, 2);
+   buzzvm_lload(vm, 3);
+   buzzvm_lload(vm, 4);
+   buzzvm_type_assert(vm, 4, BUZZTYPE_INT);
+   buzzvm_type_assert(vm, 3, BUZZTYPE_INT);
+   buzzvm_type_assert(vm, 2, BUZZTYPE_INT);
+   buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->SetArgosCoordinateIDs(
+		   buzzvm_stack_at(vm, 5)->i.value,
+		   buzzvm_stack_at(vm, 4)->i.value,
+		   buzzvm_stack_at(vm, 3)->i.value,
+		   buzzvm_stack_at(vm, 2)->i.value);
+   return buzzvm_ret0(vm);
+}
+
+
+/****************************************/
+/****************************************/
+
+void di_print_elem(const void* key, void* data, void* params) {
+	buzzobj_t tData = *reinterpret_cast<buzzobj_t*>(data);
+	std::vector<float>* psParams = reinterpret_cast<std::vector<float>*>(params);
+
+	switch(tData->o.type) {
+		case BUZZTYPE_INT:
+			psParams->push_back((float)tData->i.value);
+			//fprintf(stdout, "[buzz_controller_footbot.cpp] %d \n", tData->i.value);
+			break;
+		case BUZZTYPE_FLOAT:
+			psParams->push_back(tData->f.value);
+			//fprintf(stdout, "[buzz_controller_footbot.cpp] %f \n", tData->f.value);
+			break;
+		break;
+		default:
+			fprintf(stdout, "[buzz_controller_footbot.cpp] Currently, only int and float items are supported!\n");
+		return;
+	}
+}
+
+int BuzzShowBorderRobots(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 1);
+   buzzvm_lload(vm, 1);
+   buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);
+   buzzobj_t t = buzzvm_stack_at(vm, 1);
+
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+
+   std::vector<float> v;
+   buzzdict_foreach(t->t.value, di_print_elem, &v);
+
+   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->m_border_robot_ids = v;
+   return buzzvm_ret0(vm);
+}
+
+/****************************************/
+/****************************************/
+
 
 CBuzzControllerFootBot::CBuzzControllerFootBot() :
    m_pcWheels(NULL),
@@ -303,6 +366,41 @@ void CBuzzControllerFootBot::SetArgosMap(std::string map) {
 /****************************************/
 /****************************************/
 
+void CBuzzControllerFootBot::SetArgosCoordinateIDs(int leader_id, int ref1_id, int ref2_id, int redraw) {
+ 	m_leader_id = leader_id;
+	m_ref1_id = ref1_id;
+	m_ref2_id = ref2_id;
+	if(redraw == 0){
+		m_redraw_coordinate_sys = false;
+	} else {
+		m_redraw_coordinate_sys = true;
+	}
+}
+
+int CBuzzControllerFootBot::GetLeaderId(){
+	return m_leader_id;
+}
+int CBuzzControllerFootBot::GetRef1Id(){
+	return m_ref1_id;
+}
+int CBuzzControllerFootBot::GetRef2Id(){
+	return m_ref2_id;
+}
+float CBuzzControllerFootBot::GetRedrawCoordinateSys(){
+	return m_redraw_coordinate_sys;
+}
+
+
+/****************************************/
+/****************************************/
+
+std::vector<float> CBuzzControllerFootBot::GetBorderRobotIds() {
+	return m_border_robot_ids;
+}
+
+/****************************************/
+/****************************************/
+
 std::string CBuzzControllerFootBot::GetArgosMap() {
 	return m_map_string;
 }
@@ -339,6 +437,16 @@ buzzvm_state CBuzzControllerFootBot::RegisterFunctions() {
    /* BuzzSetMap */
    buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "set_argos_map", 1));
    buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetArgosMap));
+   buzzvm_gstore(m_tBuzzVM);
+
+   /* DrawCoorinateSystem */
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "show_coordinate_system", 1));
+   buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzShowCoordinateSystem));
+   buzzvm_gstore(m_tBuzzVM);
+
+   /* Get border robots */
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "show_border_robots", 1));
+   buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzShowBorderRobots));
    buzzvm_gstore(m_tBuzzVM);
 
    return m_tBuzzVM->state;

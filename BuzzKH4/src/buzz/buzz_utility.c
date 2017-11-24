@@ -555,6 +555,7 @@ void buzz_script_step() {
    buzzkh4_update_simulated_battery(VM);
    buzzkh4_update_battery(VM);
    buzzkh4_update_ir(VM);
+   buzzkh4_update_snr(VM);
    buzzkh4_update_ir_new(VM);
 
    pthread_mutex_lock(&INCOMING_PACKET_MUTEX);

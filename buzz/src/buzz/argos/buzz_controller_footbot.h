@@ -51,6 +51,15 @@ public:
    void SetArgosMap(std::string map);
    std::string GetArgosMap();
 
+   void SetArgosCoordinateIDs(int leader_id, int ref1_id, int ref2_id, int redraw);
+   int GetLeaderId();
+   int GetRef1Id();
+   int GetRef2Id();
+   float GetRedrawCoordinateSys();
+   std::vector<float> GetBorderRobotIds();
+   std::vector<float> m_border_robot_ids;
+
+
 private:
 
    virtual buzzvm_state RegisterFunctions();
@@ -65,6 +74,12 @@ protected:
    CCI_FootBotProximitySensor* m_pcProximity;
 
    std::string m_map_string = "";
+
+   float m_redraw_coordinate_sys = 0;
+   int m_leader_id = 0;
+   int m_ref1_id = 0;
+   int m_ref2_id = 0;
+
 
    /* The turning parameters. */
    SWheelTurningParams m_sWheelTurningParams;
