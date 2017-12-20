@@ -31,6 +31,24 @@ uint32_t buzzobj_table_hash(const void* key) {
    }
 }
 
+uint32_t buzzobj_table_hash2(const void* key) {
+   buzzobj_t k = *(buzzobj_t*)key;
+   switch(k->o.type) {
+      case BUZZTYPE_INT: {
+         return (k->i.value);
+      }
+      case BUZZTYPE_FLOAT: {
+         return ((uint32_t)(k->f.value));
+      }
+      case BUZZTYPE_STRING: {
+         return ((uint32_t)(k->s.value.sid) );
+      }
+      default:
+         fprintf(stderr, "[TODO] %s:%d\n", __FILE__, __LINE__);
+         abort();
+   }
+}
+
 int buzzobj_table_keycmp(const void* a, const void* b) {
    return buzzobj_cmp(*(buzzobj_t*)a, *(buzzobj_t*)b);
 }

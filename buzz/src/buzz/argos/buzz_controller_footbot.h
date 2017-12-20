@@ -2,15 +2,73 @@
 #define BUZZ_CONTROLLER_FOOTBOT_H
 
 #include <buzz/argos/buzz_controller.h>
+#include <buzz/buzzdarray.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_actuator.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_proximity_sensor.h>
+#include <algorithm>
 
 using namespace argos;
 
 class CBuzzControllerFootBot : public CBuzzController {
 
 public:
+
+	class CoordinateSystem {
+	public:
+		int m_id_leader;
+		int m_id_ref_robot1;
+		int m_id_ref_robot2;
+		bool m_keep_redrawing = false;
+		int m_id;
+
+		inline CoordinateSystem(int id, int posRobotLeader, int posRobot1, int posRobot2, bool keep_redrawing)
+		{
+			m_id = id;
+			m_id_leader = posRobotLeader;
+			m_id_ref_robot1 = posRobot1;
+			m_id_ref_robot2 = posRobot2;
+			m_keep_redrawing = keep_redrawing;
+		}
+	 	inline bool operator==(const int& o) const {
+	 		return this->m_id == o;
+	 	}
+	};
+
+	class Obstacle {
+	public:
+		float m_x;
+		float m_y;
+		float m_radius;
+		int m_type;
+		inline Obstacle(float x, float y, float radius, int type)
+		{
+			m_x = x;
+			m_y = y;
+			m_radius = radius;
+			m_type = type;
+		}
+	};
+
+	class PathItem {
+	public:
+		int m_id;
+		int m_parent;
+		float m_x;
+		float m_y;
+
+		PathItem();
+
+		inline PathItem(int id, int parent, float x, float y)
+		{
+			m_id = id;
+			m_parent = parent;
+			m_x = x;
+			m_y = y;
+		}
+
+	};
+
 
    struct SWheelTurningParams {
       /*
@@ -51,14 +109,26 @@ public:
    void SetArgosMap(std::string map);
    std::string GetArgosMap();
 
-   void SetArgosCoordinateIDs(int leader_id, int ref1_id, int ref2_id, int redraw);
-   int GetLeaderId();
-   int GetRef1Id();
-   int GetRef2Id();
-   float GetRedrawCoordinateSys();
+   void SetArgosCoordinateIDs(int cs_id, int leader_id, int ref1_id, int ref2_id, int redraw);
+   void RemoveCS(int cs_id);
+
+   void SetMapParams(std::vector<float> map, float size);
+
+   void Done(std::vector<CBuzzControllerFootBot::PathItem> pis);
+
+   void ArgosDrawObstacles(std::vector<CBuzzControllerFootBot::Obstacle> obs);
+
+
+   std::vector<PathItem> GetPath();
+
+   std::vector<CoordinateSystem> GetRobotsForCS();
    std::vector<float> GetBorderRobotIds();
    std::vector<float> m_border_robot_ids;
 
+   float map_size = 0;
+   std::vector<float> m_map;
+   std::vector<PathItem> current_path;
+   std::vector<Obstacle> obstacles;
 
 private:
 
@@ -79,6 +149,8 @@ protected:
    int m_leader_id = 0;
    int m_ref1_id = 0;
    int m_ref2_id = 0;
+
+   std::vector<CoordinateSystem> m_cs;
 
 
    /* The turning parameters. */
