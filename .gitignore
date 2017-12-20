@@ -40,3 +40,12 @@ cmake_install.cmake
 install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
+
+build*
+/src/testing/*.basm
+/src/testing/*.bo
+/src/testing/*.bdb
+/doc/api.pdf
+/doc/api.tex
+/.DS_Store
+
