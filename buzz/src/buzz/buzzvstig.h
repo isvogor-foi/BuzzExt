@@ -57,10 +57,12 @@ extern "C" {
 
    /*
     * Clones a virtual stigmergy entry.
+    * @param vm The Buzz VM state.
     * @param e The entry to clone.
     * @return A new virtual stigmergy entry.
     */
-   extern buzzvstig_elem_t buzzvstig_elem_clone(const buzzvstig_elem_t e);
+   extern buzzvstig_elem_t buzzvstig_elem_clone(struct buzzvm_s* vm,
+                                                const buzzvstig_elem_t e);
 
    /*
     * Creates a new virtual stigmergy structure.
@@ -132,6 +134,13 @@ extern "C" {
    extern int buzzvstig_get(struct buzzvm_s* vm);
 
    /*
+    * Buzz C closure to loop through the elements of a stigmergy object.
+    * @param vm The Buzz VM state.
+    * @return The updated VM state.
+    */
+   extern int buzzvstig_foreach(struct buzzvm_s* vm);
+
+   /*
     * Buzz C closure to set the function to call on write conflict.
     * @param vm The Buzz VM state.
     * @return The updated VM state.
@@ -199,6 +208,6 @@ extern "C" {
  * @param params A buffer to pass along.
  * @see buzzdict_foreach()
  */
-#define buzzvstig_foreach(vs, fun, params) buzzdict_foreach((vs)->data, fun, params);
+#define buzzvstig_foreach_elem(vs, fun, params) buzzdict_foreach((vs)->data, fun, params);
 
 #endif

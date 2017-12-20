@@ -69,9 +69,9 @@ buzzvstig_elem_t buzzvstig_elem_new(buzzobj_t data,
 /****************************************/
 /****************************************/
 
-buzzvstig_elem_t buzzvstig_elem_clone(const buzzvstig_elem_t e) {
+buzzvstig_elem_t buzzvstig_elem_clone(buzzvm_t vm, const buzzvstig_elem_t e) {
    buzzvstig_elem_t x = (buzzvstig_elem_t)malloc(sizeof(struct buzzvstig_elem_s));
-   x->data      = buzzobj_iclone(e->data);
+   x->data      = buzzheap_clone(vm, e->data);
    x->timestamp = e->timestamp;
    x->robot     = e->robot;
    return x;
@@ -177,6 +177,7 @@ int buzzvstig_create(buzzvm_t vm) {
    buzzvm_pushs(vm, buzzvm_string_register(vm, "id", 1));
    buzzvm_pushi(vm, id);
    buzzvm_tput(vm);
+   function_register(foreach);
    function_register(size);
    function_register(put);
    function_register(get);
@@ -242,6 +243,48 @@ int buzzvstig_put(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
+struct buzzvstig_foreach_params {
+   buzzvm_t vm;
+   buzzobj_t fun;
+};
+
+void buzzvstig_foreach_entry(const void* key, void* data, void* params) {
+   /* Cast params */
+   struct buzzvstig_foreach_params* p = (struct buzzvstig_foreach_params*)params;
+   if(p->vm->state != BUZZVM_STATE_READY) return;
+   /* Push closure and params (key, value, robot) */
+   buzzvm_push(p->vm, p->fun);
+   buzzvm_push(p->vm, *(buzzobj_t*)key);
+   buzzvm_push(p->vm, (*(buzzvstig_elem_t*)data)->data);
+   buzzvm_pushi(p->vm, (*(buzzvstig_elem_t*)data)->robot);
+   /* Call closure */
+   p->vm->state = buzzvm_closure_call(p->vm, 3);
+}
+
+int buzzvstig_foreach(struct buzzvm_s* vm) {
+   /* Make sure you got one argument */
+   buzzvm_lnum_assert(vm, 1);
+   /* Get vstig id */
+   id_get();
+   /* Look for virtual stigmergy */
+   const buzzvstig_t* vs = buzzdict_get(vm->vstigs, &id, buzzvstig_t);
+   if(vs) {
+      /* Virtual stigmergy found */
+      /* Get closure */
+      buzzvm_lload(vm, 1);
+      buzzvm_type_assert(vm, 1, BUZZTYPE_CLOSURE);
+      buzzobj_t c = buzzvm_stack_at(vm, 1);
+      /* Go through the elements and apply the closure */
+      struct buzzvstig_foreach_params p = { .vm = vm, .fun = c };
+      buzzdict_foreach((*vs)->data, buzzvstig_foreach_entry, &p);
+   }
+   /* Return */
+   return buzzvm_ret0(vm);
+}
+
+/****************************************/
+/****************************************/
+
 int buzzvstig_size(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 0);
    /* Get vstig id */
@@ -291,13 +334,13 @@ int buzzvstig_get(buzzvm_t vm) {
                                vm->robot);             // robot id
          /* Append the message to the out message queue */
          buzzoutmsg_queue_append_vstig(vm, BUZZMSG_VSTIG_QUERY, id, k, x);
+         free(x);
       }
    }
    else {
       /* No virtual stigmergy found, just push false */
       /* If this happens, its a bug */
       buzzvm_pushnil(vm);
-      fprintf(stderr, "[BUG] [ROBOT %u] Can't find virtual stigmergy %u\n", vm->robot, id);
    }
    /* Return the value found */
    return buzzvm_ret1(vm);
@@ -319,7 +362,7 @@ int buzzvstig_onconflict(struct buzzvm_s* vm) {
       buzzvm_type_assert(vm, 1, BUZZTYPE_CLOSURE);
       /* Clone the closure */
       if((*vs)->onconflict) free((*vs)->onconflict);
-      (*vs)->onconflict = buzzobj_iclone(buzzvm_stack_at(vm, 1));
+      (*vs)->onconflict = buzzheap_clone(vm, buzzvm_stack_at(vm, 1));
    }
    else {
       /* No virtual stigmergy found, just push false */
@@ -347,7 +390,7 @@ int buzzvstig_onconflictlost(struct buzzvm_s* vm) {
       buzzvm_type_assert(vm, 1, BUZZTYPE_CLOSURE);
       /* Clone the closure */
       if((*vs)->onconflictlost) free((*vs)->onconflictlost);
-      (*vs)->onconflictlost = buzzobj_iclone(buzzvm_stack_at(vm, 1));
+      (*vs)->onconflictlost = buzzheap_clone(vm, buzzvm_stack_at(vm, 1));
    }
    else {
       /* No virtual stigmergy found, just push false */
@@ -414,16 +457,16 @@ buzzvstig_elem_t buzzvstig_onconflict_call(buzzvm_t vm,
       if(((lv->data->o.type == BUZZTYPE_NIL) && (rv->data->o.type == BUZZTYPE_NIL)) ||
          ((lv->data->o.type != BUZZTYPE_NIL) && (rv->data->o.type != BUZZTYPE_NIL))) {
          if(lv->robot > rv->robot)
-            return buzzvstig_elem_clone(lv);
+            return buzzvstig_elem_clone(vm, lv);
          else
-            return buzzvstig_elem_clone(rv);
+            return buzzvstig_elem_clone(vm, rv);
       }
       /* If my value is not nil, keep mine */
       if(lv->data->o.type != BUZZTYPE_NIL)
-         return buzzvstig_elem_clone(lv);
+         return buzzvstig_elem_clone(vm, lv);
       /* If the other value is not nil, keep that one */
       if(rv->data->o.type != BUZZTYPE_NIL)
-         return buzzvstig_elem_clone(rv);
+         return buzzvstig_elem_clone(vm, rv);
       /* Otherwise nothing to do */
       return NULL;
    }

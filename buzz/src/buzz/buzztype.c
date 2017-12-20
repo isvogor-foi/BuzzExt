@@ -26,25 +26,7 @@ uint32_t buzzobj_table_hash(const void* key) {
          return ((uint32_t)(k->s.value.sid) % BUZZTYPE_TABLE_BUCKETS);
       }
       default:
-         fprintf(stderr, "[TODO] %s:%d\n", __FILE__, __LINE__);
-         abort();
-   }
-}
-
-uint32_t buzzobj_table_hash2(const void* key) {
-   buzzobj_t k = *(buzzobj_t*)key;
-   switch(k->o.type) {
-      case BUZZTYPE_INT: {
-         return (k->i.value);
-      }
-      case BUZZTYPE_FLOAT: {
-         return ((uint32_t)(k->f.value));
-      }
-      case BUZZTYPE_STRING: {
-         return ((uint32_t)(k->s.value.sid) );
-      }
-      default:
-         fprintf(stderr, "[TODO] %s:%d\n", __FILE__, __LINE__);
+         fprintf(stderr, "Can't use a %s value as table key\n", buzztype_desc[k->o.type]);
          abort();
    }
 }
@@ -74,63 +56,6 @@ buzzobj_t buzzobj_new(uint16_t type) {
    }
    /* All done */
    return o;
-}
-
-/****************************************/
-/****************************************/
-
-void buzzobj_iclone_tableelem(const void* key, void* data, void* params) {
-   buzzobj_t k = buzzobj_iclone(*(buzzobj_t*)key);
-   buzzobj_t d = buzzobj_iclone(*(buzzobj_t*)data);
-   buzzdict_set((buzzdict_t)params, &k, &d);
-}
-
-buzzobj_t buzzobj_iclone(const buzzobj_t o) {
-   buzzobj_t x = (buzzobj_t)malloc(sizeof(union buzzobj_u));
-   x->o.type = o->o.type;
-   x->o.marker = o->o.marker;
-   switch(o->o.type) {
-      case BUZZTYPE_NIL: {
-         return x;
-      }
-      case BUZZTYPE_INT: {
-         x->i.value = o->i.value;
-         return x;
-      }
-      case BUZZTYPE_FLOAT: {
-         x->f.value = o->f.value;
-         return x;
-      }
-      case BUZZTYPE_STRING: {
-         x->s.value.sid = o->s.value.sid;
-         x->s.value.str = o->s.value.str;
-         return x;
-      }
-      case BUZZTYPE_USERDATA: {
-         x->u.value = o->u.value;
-         return x;
-      }
-      case BUZZTYPE_CLOSURE: {
-         x->c.value.ref = o->c.value.ref;
-         x->c.value.actrec = buzzdarray_clone(o->c.value.actrec);
-         x->c.value.isnative = o->c.value.isnative;
-         return x;
-      }
-      case BUZZTYPE_TABLE: {
-         buzzdict_t orig = o->t.value;
-         x->t.value = buzzdict_new(orig->num_buckets,
-                                   orig->key_size,
-                                   orig->data_size,
-                                   orig->hashf,
-                                   orig->keycmpf,
-                                   orig->dstryf);
-         buzzdict_foreach(orig, buzzobj_iclone_tableelem, x->t.value);
-         return x;
-      }
-      default:
-         fprintf(stderr, "[BUG] %s:%d: Clone for Buzz object type %d\n", __FILE__, __LINE__, o->o.type);
-         abort();
-   }
 }
 
 /****************************************/
@@ -308,7 +233,7 @@ int buzzobj_clone(buzzvm_t vm) {
    buzzobj_t o = buzzvm_stack_at(vm, 1);
    buzzvm_pop(vm);
    /* Return a clone of the object */
-   buzzvm_push(vm, buzzobj_iclone(o));
+   buzzvm_push(vm, buzzheap_clone(vm, o));
    return buzzvm_ret1(vm);
 }
 
@@ -384,6 +309,7 @@ void buzzobj_map_entry(const void* key, void* data, void* params) {
    buzzvm_push(p->vm, *(buzzobj_t*)data);
    /* Call closure */
    p->vm->state = buzzvm_closure_call(p->vm, 2);
+   if(p->vm->state != BUZZVM_STATE_READY) return;
    /* Make sure a value was returned */
    if(buzzvm_stack_top(p->vm) <= ss) {
       /* Error */
@@ -411,7 +337,7 @@ int buzzobj_map(buzzvm_t vm) {
    buzzvm_type_assert(vm, 1, BUZZTYPE_CLOSURE);
    buzzobj_t c = buzzvm_stack_at(vm, 1);
    /* Create a table as the return value */
-   buzzobj_t r = buzzheap_newobj(vm->heap, BUZZTYPE_TABLE);
+   buzzobj_t r = buzzheap_newobj(vm, BUZZTYPE_TABLE);
    buzzvm_push(vm, r);
    /* Go through the table element and apply the closure */
    struct buzzobj_map_params p = {
@@ -448,6 +374,7 @@ void buzzobj_reduce_entry(const void* key, void* data, void* params) {
    buzzvm_push(p->vm, accum);
    /* Call closure */
    p->vm->state = buzzvm_closure_call(p->vm, 3);
+   if(p->vm->state != BUZZVM_STATE_READY) return;
    /* Make sure a value was returned */
    if(buzzvm_stack_top(p->vm) <= ss)
       /* Error */
@@ -508,8 +435,27 @@ void buzzobj_serialize(buzzdarray_t buf,
          buzzdict_foreach(data->t.value, buzzobj_serialize_tableelem, buf);
          break;
       }
+      case BUZZTYPE_CLOSURE: {
+         // TODO here we assume that the first and only element of the
+         // activation record is nil, which is true only for basic
+         // functions. For table closures, we currently have no check,
+         // so while table closures technically can pass the
+         // subsequent test, they cannot in fact be serialized
+         // correctly. More work is necessary to serialize the
+         // closures completely. The only supported cases are
+         // serializing a function and the test case in
+         // testmobilecode.bzz, which involves a table.
+         if(buzzdarray_size(data->c.value.actrec) == 1) {
+            buzzmsg_serialize_u8(buf, data->c.value.isnative);
+            buzzmsg_serialize_u32(buf, data->c.value.ref);
+         }
+         else {
+            fprintf(stderr, "[TODO] %s:%d: can't serialize a nested closure\n", __FILE__, __LINE__);
+         }
+         break;
+      }
       default:
-         fprintf(stderr, "[TODO] %s %d\n", __FILE__, __LINE__);
+         fprintf(stderr, "[TODO] %s:%d Can't serialize an object of type %s\n", __FILE__, __LINE__, buzztype_desc[data->o.type]);
    }
 }
 
@@ -524,7 +470,7 @@ int64_t buzzobj_deserialize(buzzobj_t* data,
    uint8_t type;
    p = buzzmsg_deserialize_u8(&type, buf, p);
    if(p < 0) return -1;
-   *data = buzzheap_newobj(vm->heap, type);
+   *data = buzzheap_newobj(vm, type);
    switch(type) {
       case BUZZTYPE_NIL: {
          return p;
@@ -560,8 +506,15 @@ int64_t buzzobj_deserialize(buzzobj_t* data,
          }
          return p;
       }
+      case BUZZTYPE_CLOSURE: {
+         buzzobj_t nil = buzzheap_newobj(vm, BUZZTYPE_NIL);
+         buzzdarray_push((*data)->c.value.actrec, &nil);
+         p = buzzmsg_deserialize_u8(&((*data)->c.value.isnative), buf, p);
+         if(p < 0) return -1;
+         return buzzmsg_deserialize_u32((uint32_t*)(&((*data)->c.value.ref)), buf, p);
+      }
       default:
-         fprintf(stderr, "TODO: %s %d\n", __FILE__, __LINE__);
+         fprintf(stderr, "[TODO] %s:%d Can't deserialize an object of type %s\n", __FILE__, __LINE__, buzztype_desc[type]);
          return -1;
    }
 }

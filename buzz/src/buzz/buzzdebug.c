@@ -14,24 +14,18 @@ buzzdebug_entry_t buzzdebug_entry_new(uint64_t l,
    buzzdebug_entry_t x = malloc(sizeof(struct buzzdebug_entry_s));
    x->line = l;
    x->col = c;
-   x->fname = strdup(fn);
+   x->fname = fn;
    return x;
-}
-
-void buzzdebug_entry_destroy(buzzdebug_entry_t* e) {
-   free((*e)->fname);
-   free(*e);
-   *e = NULL;
 }
 
 void buzzdebug_off2script_destroyf(const void* key, void* data, void* params) {
    free((void*)key);
-   buzzdebug_entry_destroy((buzzdebug_entry_t*)data);
+   free(*(buzzdebug_entry_t*)data);
    free(data);
 }
 
 void buzzdebug_script2off_destroyf(const void* key, void* data, void* params) {
-   buzzdebug_entry_destroy((buzzdebug_entry_t*)key);
+   free(*(buzzdebug_entry_t*)key);
    free((void*)key);
    free(data);
 }
@@ -64,9 +58,26 @@ int buzzdebug_entrycmp(const void* a, const void* b) {
 /****************************************/
 /****************************************/
 
+int buzzdebug_fnames_cmp(const void* a, const void* b) {
+   const char* d1 = *(const char**)a;
+   const char* d2 = *(const char**)b;
+   return strcmp(d1, d2);
+}
+
+void buzzdebug_fnames_destroy(void* data, void* params) {
+   free(*(char**)data);
+}
+
+/****************************************/
+/****************************************/
+
 buzzdebug_t buzzdebug_new() {
    /* Make room for the debug information structure */
    buzzdebug_t x = (buzzdebug_t)malloc(sizeof(struct buzzdebug_s));
+   /* Create new file name set  */
+   x->fnames = buzzset_new(sizeof(char*),
+                           buzzdebug_fnames_cmp,
+                           buzzdebug_fnames_destroy);
    /* Make hash map for offset -> script data */
    x->off2script = buzzdict_new(100,
                                 sizeof(int32_t),
@@ -93,6 +104,7 @@ void buzzdebug_destroy(buzzdebug_t* dbg) {
    buzzdarray_destroy(&(*dbg)->breakpoints);
    buzzdict_destroy(&(*dbg)->off2script);
    buzzdict_destroy(&(*dbg)->script2off);
+   buzzset_destroy(&(*dbg)->fnames);
    free(*dbg);
    *dbg = NULL;
 }
@@ -108,8 +120,9 @@ int buzzdebug_fromfile(buzzdebug_t dbg,
    /* Keep reading until you reach the end of the data or an error */
    uint32_t offset;
    uint64_t line, col;
-   uint16_t srcfnlen, srcfnlenmax = 100;
+   uint16_t srcfnlen, srcfnlenmax = 512;
    char* srcfname = (char*)malloc(srcfnlenmax);
+   /* char fepmark; */
    while(!feof(fd) && !ferror(fd)) {
       /* Read fields */
       if(fread(&offset,   sizeof(offset),   1, fd) == 1 &&
@@ -125,6 +138,10 @@ int buzzdebug_fromfile(buzzdebug_t dbg,
             srcfname[srcfnlen] = 0;
             buzzdebug_info_set(dbg, offset, line, col, srcfname);
          }
+         /* Read fields */
+         /* if(fread(&fepmark, sizeof(fepmark), 1, fd) == 1 && */
+         /*    fepmark > 0) { */
+         /* } */
       }
    }
    int err = ferror(fd);
@@ -182,8 +199,22 @@ void buzzdebug_info_set(buzzdebug_t dbg,
                         uint64_t line,
                         uint64_t col,
                         const char* fname) {
+   /* Save filename */
+   /* Check whether it's already in the set */
+   const char* fn;
+   const char** test = buzzset_fetch(dbg->fnames, &fname, char*);
+   if(test) {
+      /* File name found in the set */
+      fn = *test;
+   }
+   else {
+      /* Not in the set - make a duplicate */
+      fn = strdup(fname);
+      /* Add the duplicate to the set */
+      buzzset_insert(dbg->fnames, &fn);
+   }
    /* Make new entry */
-   buzzdebug_entry_t e = buzzdebug_entry_new(line, col, fname);
+   buzzdebug_entry_t e = buzzdebug_entry_new(line, col, fn);
    /* Add entry to offset -> script structure */
    buzzdict_set(dbg->off2script, &offset, &e);
    /* Add entry to script -> offset structure only if
@@ -193,7 +224,7 @@ void buzzdebug_info_set(buzzdebug_t dbg,
    if(!buzzdict_exists(dbg->script2off, &e) ||
       *buzzdict_get(dbg->script2off, &e, int32_t) > offset) {
       /* Make new entry */
-      e = buzzdebug_entry_new(line, col, fname);
+      e = buzzdebug_entry_new(line, col, fn);
       /* Add entry to script -> offset structure */
       buzzdict_set(dbg->script2off, &e, &offset);
    }
@@ -211,7 +242,7 @@ const int32_t* buzzdebug_info_get_fromscript(buzzdebug_t dbg,
    /* Search for it in the structure */
    const int32_t* found = buzzdict_get(dbg->script2off, &e, int32_t);
    /* Cleanup */
-   buzzdebug_entry_destroy(&e);
+   free(e);
    /* Return result */
    return found;
 }
@@ -276,6 +307,8 @@ buzzvm_state buzzdebug_closure_call(buzzvm_t vm,
          vm->state = BUZZVM_STATE_READY;
       else return vm->state;
    }
+   /* Insert the self table */
+   buzzdarray_insert(vm->stack, buzzdarray_size(vm->stack) - argc - 1, buzzobj_new(BUZZTYPE_NIL));
    /* Push the argument count */
    buzzvm_pushi(vm, argc);
    /* Save the current stack depth */
@@ -295,12 +328,6 @@ buzzvm_state buzzdebug_closure_call(buzzvm_t vm,
 
 /****************************************/
 /****************************************/
-
-int buzzvm_string_cmp(const void* a, const void* b) {
-   return strcmp(*(char**)a, *(char**)b);
-}
-
-#define buzzdarray_string_find(vm, str) buzzdarray_find(vm->strings, buzzvm_string_cmp, str)
 
 buzzvm_state buzzdebug_function_call(buzzvm_t vm,
                                      const char* fname,
@@ -333,48 +360,164 @@ buzzvm_state buzzdebug_function_call(buzzvm_t vm,
 /****************************************/
 /****************************************/
 
+static void buzzdebug_print_obj(FILE* stream,
+                                buzzobj_t o,
+                                buzzvm_t vm);
+
+struct buzzdebug_print_table_params_s {
+   FILE* stream;
+   buzzvm_t vm;
+};
+
+static void buzzdebug_print_table_elem(const void* key,
+                                       void* data,
+                                       void* params) {
+   struct buzzdebug_print_table_params_s* p =
+      (struct buzzdebug_print_table_params_s*)params;
+   fprintf(p->stream, "\t\t\t");
+   buzzdebug_print_obj(p->stream, *(buzzobj_t*)key, p->vm);
+   fprintf(p->stream, " -> ");
+   buzzdebug_print_obj(p->stream, *(buzzobj_t*)data, p->vm);
+   fprintf(p->stream, "\n");
+}
+
+static void buzzdebug_print_table(FILE* stream,
+                                  buzzdict_t t,
+                                  buzzvm_t vm) {
+   fprintf(stream, "[table] %" PRIu32 " elements\n", buzzdict_size(t));
+   struct buzzdebug_print_table_params_s params = {
+      .stream = stream,
+      .vm = vm
+   };
+   buzzdict_foreach(t, buzzdebug_print_table_elem, &params);
+}
+
+void buzzdebug_print_obj(FILE* stream,
+                         buzzobj_t o,
+                         buzzvm_t vm) {
+   switch(o->o.type) {
+      case BUZZTYPE_NIL:
+         fprintf(stream, "[nil]");
+         break;
+      case BUZZTYPE_INT:
+         fprintf(stream, "[int] %d", o->i.value);
+         break;
+      case BUZZTYPE_FLOAT:
+         fprintf(stream, "[float] %f", o->f.value);
+         break;
+      case BUZZTYPE_TABLE:
+         buzzdebug_print_table(stream, o->t.value, vm);
+         break;
+      case BUZZTYPE_CLOSURE:
+         if(o->c.value.isnative)
+            fprintf(stream, "[n-closure] %d", o->c.value.ref);
+         else
+            fprintf(stream, "[c-closure] %d", o->c.value.ref);
+         break;
+      case BUZZTYPE_STRING:
+         fprintf(stream, "[string] %d:'%s'", o->s.value.sid, o->s.value.str);
+         break;
+      default:
+         fprintf(stream, "[TODO] type = %d", o->o.type);
+   }
+}
+
 void buzzdebug_stack_dump(buzzvm_t vm,
                           uint32_t idx,
                           FILE* stream) {
    int64_t i;
    buzzdarray_t s = buzzdarray_get(vm->stacks, vm->stacks->size - idx, buzzdarray_t);
-   char* instr = NULL;
-   if(!buzz_instruction_deasm(vm->bcode, vm->pc, &instr)) instr = "deasm error";
+   char* curinstr = NULL;
+   if(!buzz_instruction_deasm(vm->bcode, vm->oldpc, &curinstr)) curinstr = "deasm error";
+   char* nextinstr = NULL;
+   if(!buzz_instruction_deasm(vm->bcode, vm->pc, &nextinstr)) nextinstr = "deasm error";
    fprintf(stream, "============================================================\n");
    fprintf(stream, "state: %s\terror: %d\n", buzzvm_state_desc[vm->state], vm->error);
-   fprintf(stream, "code size: %u\tpc: %d\n", vm->bcode_size, vm->pc);
+   fprintf(stream, "code size: %u\toldpc: %d\tpc: %d\n", vm->bcode_size, vm->oldpc, vm->pc);
    fprintf(stream, "stacks: %" PRIu64 "\tcur: %u\n", buzzdarray_size(vm->stacks), idx);
-   fprintf(stream, "next instr: %s\n", instr);
+   fprintf(stream, "cur instr: %s\n", curinstr);
+   fprintf(stream, "next instr: %s\n", nextinstr);
    for(i = buzzdarray_size(s)-1; i >= 0; --i) {
       fprintf(stream, "\t%" PRIu64 "\t", i);
       buzzobj_t o = buzzdarray_get(s, i, buzzobj_t);
-      switch(o->o.type) {
-         case BUZZTYPE_NIL:
-            fprintf(stream, "[nil]\n");
-            break;
-         case BUZZTYPE_INT:
-            fprintf(stream, "[int] %d\n", o->i.value);
-            break;
-         case BUZZTYPE_FLOAT:
-            fprintf(stream, "[float] %f\n", o->f.value);
-            break;
-         case BUZZTYPE_TABLE:
-            fprintf(stream, "[table] %d elements\n", buzzdict_size(o->t.value));
-            break;
-         case BUZZTYPE_CLOSURE:
-            if(o->c.value.isnative)
-               fprintf(stream, "[n-closure] %d\n", o->c.value.ref);
-            else
-               fprintf(stream, "[c-closure] %d\n", o->c.value.ref);
-            break;
-         case BUZZTYPE_STRING:
-            fprintf(stream, "[string] %d:'%s'\n", o->s.value.sid, o->s.value.str);
-            break;
-         default:
-            fprintf(stream, "[TODO] type = %d\n", o->o.type);
-      }
+      buzzdebug_print_obj(stream, o, vm);
+      fprintf(stream, "\n");
    }
    fprintf(stream, "============================================================\n\n");
+}
+
+/****************************************/
+/****************************************/
+
+static int buzzdebug_backtrace_feps_cmp(const void* a,
+                                        const void* b) {
+   /* Convert parameters to actual type */
+   struct buzzdebug_fep_entry_s* fep1 =
+      (struct buzzdebug_fep_entry_s*)a;
+   struct buzzdebug_fep_entry_s* fep2 =
+      (struct buzzdebug_fep_entry_s*)b;
+   /* Element is found if fep1's offset is greater than fep2's offset */
+   return fep1->off > fep2->off;
+}
+
+void buzzdebug_backtrace_entry(uint32_t idx,
+                               buzzdebug_t dbg,
+                               uint32_t pc,
+                               FILE* stream) {
+   fprintf(stream, "#%u: ", idx);
+   /* Look for the pc of the function entry point */
+   struct buzzdebug_fep_entry_s test = {
+      .off = pc,
+      .fname = NULL,
+      .params = NULL
+   };   
+   uint32_t i = buzzdarray_find(dbg->feps,
+                                buzzdebug_backtrace_feps_cmp,
+                                &test);
+   if(i == 0) {
+      fprintf(stream, "<function entry point for offset %u not found>\n", pc);
+      return;
+   }
+   const struct buzzdebug_fep_entry_s* fep =
+      buzzdarray_get(dbg->feps, i-1, struct buzzdebug_fep_entry_s*);
+   /* Print the entry */
+   fprintf(stream, "%s(", fep->fname);
+   if(!buzzdarray_isempty(fep->params)) {
+      fprintf(stream, ", %s",
+              buzzdarray_get(fep->params, 0, char*));
+      for(i = 1; i < buzzdarray_size(fep->params); ++i) {
+         fprintf(stream, ", %s",
+                 buzzdarray_get(fep->params, i, char*));
+      }
+   }
+   fprintf(stream, ")\n");
+}
+
+void buzzdebug_backtrace(buzzvm_t vm,
+                         buzzdebug_t dbg,
+                         FILE* stream) {
+   /* Make sure there's at least one stack present */
+   if(buzzdarray_isempty(vm->stacks)) {
+      fprintf(stream, "<no backtrace>\n");
+      return;
+   }
+   /* If we're here, it's because there's at least one stack active */
+   /* The top stack corresponds to the current pc */
+   buzzdebug_backtrace_entry(1, dbg, vm->pc, stream);
+   /* Go through the stacks beneath */
+   /* For the stacks beneath, the return pc is at the stack top */
+   /* The effective pc is that of the call instruction */
+   for(int64_t i = buzzdarray_size(vm->stacks) - 2; i >=0; --i) {
+      /* Get the return value */
+      int32_t pc = buzzvm_stack_at(vm, 1)->i.value;
+      /* Calculate the actual pc */
+      pc -= 1;
+      /* Handle the backtrace entry */
+      buzzdebug_backtrace_entry(buzzdarray_size(vm->stacks) - i,
+                                dbg,
+                                pc,
+                                stream);
+   }
 }
 
 /****************************************/

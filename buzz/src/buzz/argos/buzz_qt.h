@@ -27,10 +27,9 @@ public:
    virtual void Init(TConfigurationNode& t_tree);
    virtual void Destroy();
 
-   void Draw(CFootBotEntity& c_entity);
-   void Draw(CSpiriEntity& c_entity);
-
    virtual void Call(CEntity& c_entity);
+
+   virtual void DrawInWorld();
 
 protected:
 

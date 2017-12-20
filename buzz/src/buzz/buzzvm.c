@@ -24,40 +24,43 @@ static uint16_t SWARM_BROADCAST_PERIOD = 10;
 /****************************************/
 
 void buzzvm_dump(buzzvm_t vm) {
-   int64_t i;
+   int64_t i, j;
    fprintf(stderr, "============================================================\n");
    fprintf(stderr, "state: %d\terror: %d\n", vm->state, vm->error);
    fprintf(stderr, "code size: %u\tpc: %d\n", vm->bcode_size, vm->pc);
    fprintf(stderr, "stacks: %" PRId64 "\tcur elem: %" PRId64 " (size %" PRId64 ")\n", buzzdarray_size(vm->stacks), buzzvm_stack_top(vm), buzzvm_stack_top(vm));
-   for(i = buzzvm_stack_top(vm)-1; i >= 0; --i) {
-      fprintf(stderr, "\t%" PRId64 "\t", i);
-      buzzobj_t o = buzzdarray_get(vm->stack, i, buzzobj_t);
-      switch(o->o.type) {
-         case BUZZTYPE_NIL:
-            fprintf(stderr, "[nil]\n");
-            break;
-         case BUZZTYPE_INT:
-            fprintf(stderr, "[int] %d\n", o->i.value);
-            break;
-         case BUZZTYPE_FLOAT:
-            fprintf(stderr, "[float] %f\n", o->f.value);
-            break;
-         case BUZZTYPE_TABLE:
-            fprintf(stderr, "[table] %d elements\n", buzzdict_size(o->t.value));
-            break;
-         case BUZZTYPE_CLOSURE:
-            if(o->c.value.isnative) {
-               fprintf(stderr, "[n-closure] %d\n", o->c.value.ref);
-            }
-            else {
-               fprintf(stderr, "[c-closure] %d\n", o->c.value.ref);
-            }
-            break;
-         case BUZZTYPE_STRING:
-            fprintf(stderr, "[string] %d:'%s'\n", o->s.value.sid, o->s.value.str);
-            break;
-         default:
-            fprintf(stderr, "[TODO] type = %d\n", o->o.type);
+   for(i = buzzdarray_size(vm->stacks)-1; i >= 0 ; --i) {
+      fprintf(stderr, "===== stack: %" PRId64 " =====\n", i);
+      for(j = buzzdarray_size(buzzdarray_get(vm->stacks, i, buzzdarray_t)) - 1; j >= 0; --j) {
+         fprintf(stderr, "\t%" PRId64 "\t", j);
+         buzzobj_t o = buzzdarray_get(buzzdarray_get(vm->stacks, i, buzzdarray_t), j, buzzobj_t);
+         switch(o->o.type) {
+            case BUZZTYPE_NIL:
+               fprintf(stderr, "[nil]\n");
+               break;
+            case BUZZTYPE_INT:
+               fprintf(stderr, "[int] %d\n", o->i.value);
+               break;
+            case BUZZTYPE_FLOAT:
+               fprintf(stderr, "[float] %f\n", o->f.value);
+               break;
+            case BUZZTYPE_TABLE:
+               fprintf(stderr, "[table] %d elements\n", buzzdict_size(o->t.value));
+               break;
+            case BUZZTYPE_CLOSURE:
+               if(o->c.value.isnative) {
+                  fprintf(stderr, "[n-closure] %d\n", o->c.value.ref);
+               }
+               else {
+                  fprintf(stderr, "[c-closure] %d\n", o->c.value.ref);
+               }
+               break;
+            case BUZZTYPE_STRING:
+               fprintf(stderr, "[string] %d:'%s'\n", o->s.value.sid, o->s.value.str);
+               break;
+            default:
+               fprintf(stderr, "[TODO] type = %d\n", o->o.type);
+         }
       }
    }
    fprintf(stderr, "============================================================\n\n");
@@ -119,9 +122,10 @@ void buzzvm_outmsg_destroy(uint32_t pos, void* data, void* param) {
 }
 
 void buzzvm_process_inmsgs(buzzvm_t vm) {
-   if(vm->state != BUZZVM_STATE_READY) return;
    /* Go through the messages */
    while(!buzzinmsg_queue_isempty(vm->inmsgs)) {
+      /* Make sure the VM is in the right state */
+      if(vm->state != BUZZVM_STATE_READY) return;
       /* Extract the message data */
       uint16_t rid;
       buzzmsg_payload_t msg;
@@ -142,7 +146,7 @@ void buzzvm_process_inmsgs(buzzvm_t vm) {
             buzzobj_t value;
             pos = buzzobj_deserialize(&value, msg, pos, vm);
             /* Make an object for the robot id */
-            buzzobj_t rido = buzzheap_newobj(vm->heap, BUZZTYPE_INT);
+            buzzobj_t rido = buzzheap_newobj(vm, BUZZTYPE_INT);
             rido->i.value = rid;
             /* Call listener */
             buzzvm_push(vm, *l);
@@ -170,6 +174,7 @@ void buzzvm_process_inmsgs(buzzvm_t vm) {
                (buzzvstig_elem_t)malloc(sizeof(struct buzzvstig_elem_s));
             if(buzzvstig_elem_deserialize(&k, &v, msg, pos, vm) < 0) {
                fprintf(stderr, "[WARNING] [ROBOT %u] Malformed BUZZMSG_VSTIG_PUT message received\n", vm->robot);
+               free(v);
                break;
             }
             /* Deserialization successful */
@@ -199,7 +204,7 @@ void buzzvm_process_inmsgs(buzzvm_t vm) {
                   ((*l)->robot == vm->robot)) {
                   /* Yes */
                   /* Save current local entry */
-                  buzzvstig_elem_t ol = buzzvstig_elem_clone(*l);
+                  buzzvstig_elem_t ol = buzzvstig_elem_clone(vm, *l);
                   /* Store winning value */
                   buzzvstig_store(*vs, &k, &c);
                   /* Call conflict lost manager */
@@ -224,7 +229,7 @@ void buzzvm_process_inmsgs(buzzvm_t vm) {
             uint16_t id;
             int64_t pos = buzzmsg_deserialize_u16(&id, msg, 1);
             if(pos < 0) {
-               fprintf(stderr, "[WARNING] [ROBOT %u] Malformed BUZZMSG_VSTIG_PUT message received\n", vm->robot);
+               fprintf(stderr, "[WARNING] [ROBOT %u] Malformed BUZZMSG_VSTIG_QUERY message received (1)\n", vm->robot);
                break;
             }
             /* Deserialize key and value from msg */
@@ -232,7 +237,8 @@ void buzzvm_process_inmsgs(buzzvm_t vm) {
             buzzvstig_elem_t v = // value
                (buzzvstig_elem_t)malloc(sizeof(struct buzzvstig_elem_s));
             if(buzzvstig_elem_deserialize(&k, &v, msg, pos, vm) < 0) {
-               fprintf(stderr, "[WARNING] [ROBOT %u] Malformed BUZZMSG_VSTIG_PUT message received\n", vm->robot);
+               fprintf(stderr, "[WARNING] [ROBOT %u] Malformed BUZZMSG_VSTIG_QUERY message received (2)\n", vm->robot);
+               free(v);
                break;
             }
             /* Look for virtual stigmergy */
@@ -240,6 +246,7 @@ void buzzvm_process_inmsgs(buzzvm_t vm) {
             if(!vs) {
                /* Virtual stigmergy not found, simply propagate the message */
                buzzoutmsg_queue_append_vstig(vm, BUZZMSG_VSTIG_QUERY, id, k, v);
+               free(v);
                break;
             }
             /* Virtual stigmergy found */
@@ -250,6 +257,7 @@ void buzzvm_process_inmsgs(buzzvm_t vm) {
                if(v->data->o.type == BUZZTYPE_NIL) {
                   /* This robot knows nothing about the query, just propagate it */
                   buzzoutmsg_queue_append_vstig(vm, BUZZMSG_VSTIG_QUERY, id, k, v);
+                  free(v);
                }
                else {
                   /* Store element and propagate PUT message */
@@ -285,7 +293,7 @@ void buzzvm_process_inmsgs(buzzvm_t vm) {
                   ((*l)->robot == vm->robot)) {
                   /* Yes */
                   /* Save current local entry */
-                  buzzvstig_elem_t ol = buzzvstig_elem_clone(*l);
+                  buzzvstig_elem_t ol = buzzvstig_elem_clone(vm, *l);
                   /* Store winning value */
                   buzzvstig_store(*vs, &k, &c);
                   /* Call conflict lost manager */
@@ -458,6 +466,8 @@ buzzvm_t buzzvm_new(uint16_t robot) {
 /****************************************/
 
 void buzzvm_destroy(buzzvm_t* vm) {
+   /* Get rid of the rng state */
+   free((*vm)->rngstate);
    /* Get rid of the stack */
    buzzstrman_destroy(&(*vm)->strings);
    /* Get rid of the global variable table */
@@ -547,6 +557,7 @@ int buzzvm_set_bcode(buzzvm_t vm,
    vm->bcode = bcode;
    /* Set program counter */
    vm->pc = i;
+   vm->oldpc = vm->pc;
    /*
     * Register function definitions
     * Stop when you find a 'nop'
@@ -581,7 +592,7 @@ int buzzvm_set_bcode(buzzvm_t vm,
 
 #define assert_pc(IDX) if((IDX) < 0 || (IDX) >= vm->bcode_size) { buzzvm_seterror(vm, BUZZVM_ERROR_PC, NULL); return vm->state; }
 
-#define inc_pc() ++vm->pc; assert_pc(vm->pc);
+#define inc_pc() vm->oldpc = vm->pc; ++vm->pc; assert_pc(vm->pc);
 
 #define get_arg(TYPE) assert_pc(vm->pc + sizeof(TYPE)); TYPE arg = *((TYPE*)(vm->bcode + vm->pc)); vm->pc += sizeof(TYPE);
 
@@ -846,6 +857,10 @@ buzzvm_state buzzvm_execute_script(buzzvm_t vm) {
 
 buzzvm_state buzzvm_closure_call(buzzvm_t vm,
                                  uint32_t argc) {
+   /* Insert the self table right before the closure */
+   buzzdarray_insert(vm->stack,
+                     buzzdarray_size(vm->stack) - argc - 1,
+                     buzzheap_newobj(vm, BUZZTYPE_NIL));
    /* Push the argument count */
    buzzvm_pushi(vm, argc);
    /* Save the current stack depth */
@@ -942,13 +957,18 @@ buzzvm_state buzzvm_call(buzzvm_t vm, int isswrm) {
    /* Get rid of the function arguments */
    for(i = argn+1; i > 0; --i)
       buzzdarray_pop(vm->stack);
+   /* Pop unused self table */
+   buzzdarray_pop(vm->stack);
    /* Push return address */
    buzzvm_pushi((vm), vm->pc);
    /* Make a new stack for the function */
    vm->stack = buzzdarray_new(1, sizeof(buzzobj_t), NULL);
    buzzdarray_push(vm->stacks, &(vm->stack));
    /* Jump to/execute the function */
-   if(c->c.value.isnative) vm->pc = c->c.value.ref;
+   if(c->c.value.isnative) {
+      vm->oldpc = vm->pc;
+      vm->pc = c->c.value.ref;
+   }
    else buzzdarray_get(vm->flist,
                        c->c.value.ref,
                        buzzvm_funp)(vm);
@@ -996,7 +1016,7 @@ buzzvm_state buzzvm_push(buzzvm_t vm, buzzobj_t v) {
 /****************************************/
 
 buzzvm_state buzzvm_pushu(buzzvm_t vm, void* v) {
-   buzzobj_t o = buzzheap_newobj(vm->heap, BUZZTYPE_USERDATA);
+   buzzobj_t o = buzzheap_newobj(vm, BUZZTYPE_USERDATA);
    o->u.value = v;
    buzzvm_push(vm, o);
    return vm->state;
@@ -1006,7 +1026,7 @@ buzzvm_state buzzvm_pushu(buzzvm_t vm, void* v) {
 /****************************************/
 
 buzzvm_state buzzvm_pushnil(buzzvm_t vm) {
-   buzzobj_t o = buzzheap_newobj(vm->heap, BUZZTYPE_NIL);
+   buzzobj_t o = buzzheap_newobj(vm, BUZZTYPE_NIL);
    buzzvm_push(vm, o);
    return vm->state;
 }
@@ -1015,10 +1035,10 @@ buzzvm_state buzzvm_pushnil(buzzvm_t vm) {
 /****************************************/
 
 buzzvm_state buzzvm_pushc(buzzvm_t vm, int32_t rfrnc, int32_t nat) {
-   buzzobj_t o = buzzheap_newobj((vm->heap), BUZZTYPE_CLOSURE);
+   buzzobj_t o = buzzheap_newobj(vm, BUZZTYPE_CLOSURE);
    o->c.value.isnative = nat;
    o->c.value.ref = rfrnc;
-   buzzobj_t nil = buzzheap_newobj(vm->heap, BUZZTYPE_NIL);
+   buzzobj_t nil = buzzheap_newobj(vm, BUZZTYPE_NIL);
    buzzdarray_push(o->c.value.actrec, &nil);
    buzzvm_push(vm, o);
    return vm->state;
@@ -1028,7 +1048,7 @@ buzzvm_state buzzvm_pushc(buzzvm_t vm, int32_t rfrnc, int32_t nat) {
 /****************************************/
 
 buzzvm_state buzzvm_pushi(buzzvm_t vm, int32_t v) {
-   buzzobj_t o = buzzheap_newobj(vm->heap, BUZZTYPE_INT);
+   buzzobj_t o = buzzheap_newobj(vm, BUZZTYPE_INT);
    o->i.value = v;
    buzzvm_push(vm, o);
    return vm->state;
@@ -1038,7 +1058,7 @@ buzzvm_state buzzvm_pushi(buzzvm_t vm, int32_t v) {
 /****************************************/
 
 buzzvm_state buzzvm_pushf(buzzvm_t vm, float v) {
-   buzzobj_t o = buzzheap_newobj(vm->heap, BUZZTYPE_FLOAT);
+   buzzobj_t o = buzzheap_newobj(vm, BUZZTYPE_FLOAT);
    o->f.value = v;
    buzzvm_push(vm, o);
    return vm->state;
@@ -1055,7 +1075,7 @@ buzzvm_state buzzvm_pushs(buzzvm_t vm, uint16_t strid) {
                       strid);
       return vm->state;
    }
-   buzzobj_t o = buzzheap_newobj(vm->heap, BUZZTYPE_STRING);
+   buzzobj_t o = buzzheap_newobj(vm, BUZZTYPE_STRING);
    o->s.value.sid = (strid);
    o->s.value.str = buzzstrman_get(vm->strings, strid);
    buzzvm_push(vm, o);
@@ -1066,7 +1086,7 @@ buzzvm_state buzzvm_pushs(buzzvm_t vm, uint16_t strid) {
 /****************************************/
 
 buzzvm_state buzzvm_pushl(buzzvm_t vm, int32_t addr) {
-   buzzobj_t o = buzzheap_newobj(((vm)->heap), BUZZTYPE_CLOSURE);
+   buzzobj_t o = buzzheap_newobj(vm, BUZZTYPE_CLOSURE);
    o->c.value.isnative = 1;
    o->c.value.ref = addr;
    if(vm->lsyms) {
@@ -1077,7 +1097,7 @@ buzzvm_state buzzvm_pushl(buzzvm_t vm, int32_t addr) {
                                          i, buzzobj_t));
    }
    else {
-      buzzobj_t nil = buzzheap_newobj(vm->heap, BUZZTYPE_NIL);
+      buzzobj_t nil = buzzheap_newobj(vm, BUZZTYPE_NIL);
       buzzdarray_push(o->c.value.actrec,
                       &nil);
    }
@@ -1096,6 +1116,12 @@ buzzvm_state buzzvm_tput(buzzvm_t vm) {
    buzzvm_pop(vm);
    buzzvm_pop(vm);
    buzzvm_pop(vm);
+   if(k->o.type != BUZZTYPE_INT &&
+      k->o.type != BUZZTYPE_FLOAT &&
+      k->o.type != BUZZTYPE_STRING) {
+      buzzvm_seterror(vm, BUZZVM_ERROR_TYPE, "a %s value can't be used as table key", buzztype_desc[k->o.type]);
+      return vm->state;
+   }
    if(v->o.type == BUZZTYPE_NIL) {
       /* Nil, erase entry */
       buzzdict_remove(t->t.value, &k);
@@ -1103,7 +1129,7 @@ buzzvm_state buzzvm_tput(buzzvm_t vm) {
    else if(v->o.type == BUZZTYPE_CLOSURE) {
       /* Method call */
       int i;
-      buzzobj_t o = buzzheap_newobj((vm->heap), BUZZTYPE_CLOSURE);
+      buzzobj_t o = buzzheap_newobj(vm, BUZZTYPE_CLOSURE);
       o->c.value.isnative = v->c.value.isnative;
       o->c.value.ref = v->c.value.ref;
       buzzdarray_push(o->c.value.actrec, &t);
@@ -1129,6 +1155,12 @@ buzzvm_state buzzvm_tget(buzzvm_t vm) {
    buzzobj_t t = buzzvm_stack_at(vm, 2);
    buzzvm_pop(vm);
    buzzvm_pop(vm);
+   if(k->o.type != BUZZTYPE_INT &&
+      k->o.type != BUZZTYPE_FLOAT &&
+      k->o.type != BUZZTYPE_STRING) {
+      buzzvm_seterror(vm, BUZZVM_ERROR_TYPE, "a %s value can't be used as table key", k->o.type);
+      return vm->state;
+   }
    const buzzobj_t* v = buzzdict_get(t->t.value, &k, buzzobj_t);
    if(v) buzzvm_push(vm, *v);
    else buzzvm_pushnil(vm);
@@ -1185,6 +1217,7 @@ buzzvm_state buzzvm_ret0(buzzvm_t vm) {
    /* Make sure that element is an integer */
    buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
    /* Use that element as program counter */
+   vm->oldpc = vm->pc;
    vm->pc = buzzvm_stack_at(vm, 1)->i.value;
    /* Pop the return address */
    return buzzvm_pop(vm);
@@ -1216,6 +1249,7 @@ buzzvm_state buzzvm_ret1(buzzvm_t vm) {
    /* Make sure that element is an integer */
    buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
    /* Use that element as program counter */
+   vm->oldpc = vm->pc;
    vm->pc = buzzvm_stack_at(vm, 1)->i.value;
    /* Pop the return address */
    buzzvm_pop(vm);

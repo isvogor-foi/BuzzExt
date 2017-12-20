@@ -5,6 +5,6 @@ libdir=${exec_prefix}/lib
 
 Name: buzz
 Description: Buzz (programming language for robot swarms)
-Version: ..-
+Version: 0.0.1-334-g0044be7
 Cflags: -I${includedir} -Wno-unknown-pragmas 
 Libs:  -L${libdir} -lbuzz

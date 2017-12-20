@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <stdarg.h>
 
 /****************************************/
 /****************************************/
@@ -18,7 +17,7 @@
 
 int buzzstring_register(buzzvm_t vm) {
    /* Make "string" table */
-   buzzobj_t t = buzzheap_newobj(vm->heap, BUZZTYPE_TABLE);
+   buzzobj_t t = buzzheap_newobj(vm, BUZZTYPE_TABLE);
    /* Register methods */
    function_register(t, length);
    function_register(t, sub);
@@ -103,6 +102,7 @@ int buzzstring_sub(buzzvm_t vm) {
 }
 
 /****************************************/
+/****************************************/
 
 int buzzstring_concat(buzzvm_t vm) {
    /* Make sure at least two parameters have been passed */
@@ -177,7 +177,8 @@ int buzzstring_toint(buzzvm_t vm) {
    const char* s = buzzvm_stack_at(vm, 1)->s.value.str;
    /* Convert the string to int */
    char* endptr;
-   int32_t i = strtod(s, &endptr);
+   errno = 0;
+   int32_t i = strtol(s, &endptr, 10);
    /* Was the conversion successful? */
    if((errno != 0 && i == 0) || /* An error occurred */
       (endptr == s)) {          /* No digit found */
@@ -204,6 +205,7 @@ int buzzstring_tofloat(buzzvm_t vm) {
    const char* s = buzzvm_stack_at(vm, 1)->s.value.str;
    /* Convert the string to int */
    char* endptr;
+   errno = 0;
    float f = strtof(s, &endptr);
    /* Was the conversion successful? */
    if((errno != 0 && f == 0) || /* An error occurred */

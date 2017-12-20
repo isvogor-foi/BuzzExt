@@ -291,6 +291,36 @@ void chunk_print(uint32_t pos, void* data, void* params) {
 
 #define chunk_pop() chunk_finalize(par->chunk); par->chunk = oldc;
 
+#define chunk_buf_push()                                       \
+   char* tmpcode = par->chunk->code;                           \
+   size_t tmpsize = par->chunk->csize;                         \
+   size_t tmpcap = par->chunk->ccap;                           \
+   par->chunk->code = malloc(par->chunk->ccap);                \
+   par->chunk->csize = 0;                                      \
+
+#define chunk_buf_pop()                                                 \
+   if(tmpsize + par->chunk->csize >= tmpcap) {                          \
+      do { tmpcap *= 2; } while(tmpsize + par->chunk->csize >= tmpcap); \
+      tmpcode = realloc(tmpcode, tmpcap);                               \
+   }                                                                    \
+   strncpy(tmpcode + tmpsize, par->chunk->code, par->chunk->csize);     \
+   tmpsize += par->chunk->csize;                                        \
+   free(par->chunk->code);                                              \
+   par->chunk->code = tmpcode;                                          \
+   par->chunk->csize = tmpsize;                                         \
+   par->chunk->ccap = tmpcap;
+
+#define chunk_buf_append(...) {                                                      \
+      char* str;                                                                     \
+      struct chunk_s tmpchunk = {.code = tmpcode, .csize = tmpsize, .ccap = tmpcap}; \
+      asprintf(&str, ##__VA_ARGS__);                                                 \
+      chunk_addcode(&tmpchunk, str, par->tok);                                       \
+      free(str);                                                                     \
+      tmpcode = tmpchunk.code;                                                       \
+      tmpsize = tmpchunk.csize;                                                      \
+      tmpcap  = tmpchunk.ccap;                                                       \
+   }
+
 /****************************************/
 /****************************************/
 
@@ -675,6 +705,12 @@ int parse_conditionlist(buzzparser_t par,
 }
 
 int parse_condition(buzzparser_t par) {
+   if(par->tok->type == BUZZTOK_NOT) {
+      fetchtok();
+      if(!parse_condition(par)) return PARSE_ERROR;
+      chunk_append("\tnot");
+      return PARSE_OK;
+   }
    if(!parse_comparison(par)) return PARSE_ERROR;
    while(par->tok->type == BUZZTOK_ANDOR) {
       char op[4];
@@ -687,35 +723,20 @@ int parse_condition(buzzparser_t par) {
 }
 
 int parse_comparison(buzzparser_t par) {
-   if(par->tok->type == BUZZTOK_PAROPEN) {
+   if(!parse_expression(par)) return PARSE_ERROR;
+   if(par->tok->type == BUZZTOK_CMP) {
+      char op[4];
+      if     (strcmp(par->tok->value, "==") == 0) strcpy(op, "eq");
+      else if(strcmp(par->tok->value, "!=") == 0) strcpy(op, "neq");
+      else if(strcmp(par->tok->value, "<")  == 0) strcpy(op, "lt");
+      else if(strcmp(par->tok->value, "<=") == 0) strcpy(op, "lte");
+      else if(strcmp(par->tok->value, ">")  == 0) strcpy(op, "gt");
+      else if(strcmp(par->tok->value, ">=") == 0) strcpy(op, "gte");
       fetchtok();
-      if(!parse_condition(par)) return PARSE_ERROR;
-      tokmatch(BUZZTOK_PARCLOSE);
-      fetchtok();
-      return PARSE_OK;
-   }
-   else if(par->tok->type == BUZZTOK_NOT) {
-      fetchtok();
-      if(!parse_comparison(par)) return PARSE_ERROR;
-      chunk_append("\tnot");
-      return PARSE_OK;
-   }
-   else {
       if(!parse_expression(par)) return PARSE_ERROR;
-      if(par->tok->type == BUZZTOK_CMP) {
-         char op[4];
-         if     (strcmp(par->tok->value, "==") == 0) strcpy(op, "eq");
-         else if(strcmp(par->tok->value, "!=") == 0) strcpy(op, "neq");
-         else if(strcmp(par->tok->value, "<")  == 0) strcpy(op, "lt");
-         else if(strcmp(par->tok->value, "<=") == 0) strcpy(op, "lte");
-         else if(strcmp(par->tok->value, ">")  == 0) strcpy(op, "gt");
-         else if(strcmp(par->tok->value, ">=") == 0) strcpy(op, "gte");
-         fetchtok();
-         if(!parse_expression(par)) return PARSE_ERROR;
-         chunk_append("\t%s", op);
-      }
-      return PARSE_OK;
+      chunk_append("\t%s", op);
    }
+   return PARSE_OK;
 }
 
 /****************************************/
@@ -902,7 +923,7 @@ int parse_operand(buzzparser_t par) {
    }
    else if(par->tok->type == BUZZTOK_PAROPEN) {
       fetchtok();
-      if(!parse_expression(par)) return PARSE_ERROR;
+      if(!parse_condition(par)) return PARSE_ERROR;
       tokmatch(BUZZTOK_PARCLOSE);
       fetchtok();
       return PARSE_OK;
@@ -1074,15 +1095,24 @@ int parse_idref(buzzparser_t par,
    idrefinfo->global = s->global;
    /* Go on parsing the reference */
    fetchtok();
+   chunk_buf_push();
    while(par->tok->type == BUZZTOK_DOT ||
          par->tok->type == BUZZTOK_IDXOPEN ||
          par->tok->type == BUZZTOK_PAROPEN) {
       /* Take care of structured types */
       if(idrefinfo->global) {
+         // If the next token is a closure and is not called from a table, we push nil for the self table.
+         if(par->tok->type == BUZZTOK_PAROPEN)
+            chunk_append("\tpushnil");
          chunk_append("\tpushs %d", idrefinfo->info);
          chunk_append("\tgload");
       }
-      else if(idrefinfo->info >= 0)            { chunk_append("\tlload %" PRId64, s->pos); }
+      else if(idrefinfo->info >= 0) {
+         // If the next token is a closure and is not called from a table, we push nil for the self table.
+         if(par->tok->type == BUZZTOK_PAROPEN)
+            chunk_append("\tpushnil");
+         chunk_append("\tlload %" PRId64, s->pos);
+      }
       else if(idrefinfo->info == TYPE_TABLE)   { chunk_append("\ttget"); }
       else if(idrefinfo->info == TYPE_CLOSURE) { chunk_append("\tcallc"); }
       idrefinfo->global = 0;
@@ -1091,15 +1121,24 @@ int parse_idref(buzzparser_t par,
          idrefinfo->info = TYPE_TABLE;
          fetchtok();
          tokmatch(BUZZTOK_ID);
-         chunk_append("\tpushs %u", string_add(par->strings, par->tok->value));
+         uint32_t tmp = string_add(par->strings, par->tok->value);
          fetchtok();
+         if(par->tok->type == BUZZTOK_PAROPEN)
+            chunk_append("\tdup");
+         chunk_append("\tpushs %u", tmp);
       }
       else if(par->tok->type == BUZZTOK_IDXOPEN) {
          idrefinfo->info = TYPE_TABLE;
          fetchtok();
-         if(!parse_expression(par)) return PARSE_ERROR;
-         tokmatch(BUZZTOK_IDXCLOSE);
-         fetchtok();
+         {
+            chunk_buf_push();
+            if(!parse_expression(par)) return PARSE_ERROR;
+            tokmatch(BUZZTOK_IDXCLOSE);
+            fetchtok();
+            if(par->tok->type == BUZZTOK_PAROPEN)
+               chunk_buf_append("\tdup");
+            chunk_buf_pop();
+         }
       }
       else if(par->tok->type == BUZZTOK_PAROPEN) {
          idrefinfo->info = TYPE_CLOSURE;
@@ -1108,6 +1147,8 @@ int parse_idref(buzzparser_t par,
          if(!parse_conditionlist(par, &numargs)) return PARSE_ERROR;
          tokmatch(BUZZTOK_PARCLOSE);
          fetchtok();
+         if(par->tok->type == BUZZTOK_PAROPEN)
+            chunk_buf_append("\tpushnil");
          chunk_append("\tpushi %d", numargs);
       }
    }
@@ -1127,6 +1168,7 @@ int parse_idref(buzzparser_t par,
          chunk_append("\tcallc");
       }
    }
+   chunk_buf_pop();
    return PARSE_OK;
 }
 

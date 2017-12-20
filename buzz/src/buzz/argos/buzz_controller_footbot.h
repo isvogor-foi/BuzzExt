@@ -2,10 +2,10 @@
 #define BUZZ_CONTROLLER_FOOTBOT_H
 
 #include <buzz/argos/buzz_controller.h>
-#include <buzz/buzzdarray.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_actuator.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_proximity_sensor.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_omnidirectional_camera_sensor.h>
 #include <algorithm>
 
 using namespace argos;
@@ -14,61 +14,60 @@ class CBuzzControllerFootBot : public CBuzzController {
 
 public:
 
-	class CoordinateSystem {
-	public:
-		int m_id_leader;
-		int m_id_ref_robot1;
-		int m_id_ref_robot2;
-		bool m_keep_redrawing = false;
-		int m_id;
+class CoordinateSystem {
+  public:
+    int m_id_leader;
+    int m_id_ref_robot1;
+    int m_id_ref_robot2;
+    bool m_keep_redrawing = false;
+    int m_id;
 
-		inline CoordinateSystem(int id, int posRobotLeader, int posRobot1, int posRobot2, bool keep_redrawing)
-		{
-			m_id = id;
-			m_id_leader = posRobotLeader;
-			m_id_ref_robot1 = posRobot1;
-			m_id_ref_robot2 = posRobot2;
-			m_keep_redrawing = keep_redrawing;
-		}
-	 	inline bool operator==(const int& o) const {
-	 		return this->m_id == o;
-	 	}
-	};
+    inline CoordinateSystem(int id, int posRobotLeader, int posRobot1, int posRobot2, bool keep_redrawing)
+    {
+      m_id = id;
+      m_id_leader = posRobotLeader;
+      m_id_ref_robot1 = posRobot1;
+      m_id_ref_robot2 = posRobot2;
+      m_keep_redrawing = keep_redrawing;
+    }
+    inline bool operator==(const int& o) const {
+      return this->m_id == o;
+    }
+  };
 
-	class Obstacle {
-	public:
-		float m_x;
-		float m_y;
-		float m_radius;
-		int m_type;
-		inline Obstacle(float x, float y, float radius, int type)
-		{
-			m_x = x;
-			m_y = y;
-			m_radius = radius;
-			m_type = type;
-		}
-	};
+  class Obstacle {
+  public:
+    float m_x;
+    float m_y;
+    float m_radius;
+    int m_type;
+    inline Obstacle(float x, float y, float radius, int type)
+    {
+      m_x = x;
+      m_y = y;
+      m_radius = radius;
+      m_type = type;
+    }
+  };
 
-	class PathItem {
-	public:
-		int m_id;
-		int m_parent;
-		float m_x;
-		float m_y;
+  class PathItem {
+  public:
+    int m_id;
+    int m_parent;
+    float m_x;
+    float m_y;
 
-		PathItem();
+    PathItem();
 
-		inline PathItem(int id, int parent, float x, float y)
-		{
-			m_id = id;
-			m_parent = parent;
-			m_x = x;
-			m_y = y;
-		}
+    inline PathItem(int id, int parent, float x, float y)
+    {
+      m_id = id;
+      m_parent = parent;
+      m_x = x;
+      m_y = y;
+    }
 
-	};
-
+  };
 
    struct SWheelTurningParams {
       /*
@@ -106,6 +105,9 @@ public:
    void SetWheels(Real f_left_speed, Real f_right_speed);
    void SetWheelSpeedsFromVector(const CVector2& c_heading);
    void SetLEDs(const CColor& c_color);
+   void CameraEnable();
+   void CameraDisable();
+
    void SetArgosMap(std::string map);
    std::string GetArgosMap();
 
@@ -142,6 +144,11 @@ protected:
    CCI_LEDsActuator* m_pcLEDs;
    /* Pointer to the proximity sensor */
    CCI_FootBotProximitySensor* m_pcProximity;
+   /* Pointer to the camera sensor */
+   CCI_ColoredBlobOmnidirectionalCameraSensor* m_pcCamera;
+
+   /* The turning parameters. */
+   SWheelTurningParams m_sWheelTurningParams;
 
    std::string m_map_string = "";
 
@@ -151,10 +158,6 @@ protected:
    int m_ref2_id = 0;
 
    std::vector<CoordinateSystem> m_cs;
-
-
-   /* The turning parameters. */
-   SWheelTurningParams m_sWheelTurningParams;
 
 };
 

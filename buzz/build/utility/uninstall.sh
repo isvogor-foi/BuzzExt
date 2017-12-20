@@ -11,7 +11,7 @@ echo
 echo 'Uninstalling Buzz... '
 
 sudo rm -rf /usr/local/doc/buzz
-sudo rm -rf /usr/local/lib/libbuzz.*
+sudo rm -rf /usr/local/lib/libbuzz*
 sudo rm -rf /usr/local/lib/pkgconfig/buzz.pc
 sudo rm -rf /usr/local/include/buzz
 sudo rm -rf /usr/local/bin/bzzc
@@ -26,3 +26,5 @@ sudo rm -rf /usr/local/share/man/man1/bzzasm.1.gz
 sudo rm -rf /usr/local/share/man/man1/bzzdeasm.1.gz
 sudo rm -rf /usr/local/share/man/man1/bzzrun.1.gz
 sudo rm -rf /usr/local/lib/argos3/libargos3plugin_simulator_buzz.*
+sudo rm -rf /usr/share/cmake-3.5/Modules/FindBuzz.cmake
+sudo rm -rf /usr/share/cmake-3.5/Modules/UseBuzz.cmake

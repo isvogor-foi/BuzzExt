@@ -23,7 +23,7 @@ struct neighbor_filter_s {
 
 static int make_table(buzzvm_t vm, buzzobj_t* t) {
    /* Make new table */
-   *t = buzzheap_newobj(vm->heap, BUZZTYPE_TABLE);
+   *t = buzzheap_newobj(vm, BUZZTYPE_TABLE);
    /* Add methods */
    function_register(*t, "get",     buzzneighbors_get);
    function_register(*t, "filter",  buzzneighbors_filter);
@@ -87,7 +87,7 @@ int buzzneighbors_add(buzzvm_t vm,
    /* Push robot id */
    buzzvm_pushi(vm, robot);
    /* Create entry table */
-   buzzobj_t entry = buzzheap_newobj(vm->heap, BUZZTYPE_TABLE);
+   buzzobj_t entry = buzzheap_newobj(vm, BUZZTYPE_TABLE);
    /* Insert distance */
    buzzvm_push(vm, entry);
    buzzvm_pushs(vm, buzzvm_string_register(vm, "distance", 1));
@@ -212,7 +212,7 @@ int buzzneighbors_kin(buzzvm_t vm) {
    /* If data is available, filter it */
    if(data->o.type == BUZZTYPE_TABLE) {
       /* Create a new data table */
-      buzzobj_t kindata = buzzheap_newobj(vm->heap, BUZZTYPE_TABLE);
+      buzzobj_t kindata = buzzheap_newobj(vm, BUZZTYPE_TABLE);
       /* Filter the neighbors in data and add them to kindata */
       struct neighbor_filter_s fdata = { .vm = vm, .swarm_id = swarmid, .result = kindata->t.value };
       buzzdict_foreach(data->t.value, neighbor_filter_kin, &fdata);
@@ -276,7 +276,7 @@ int buzzneighbors_nonkin(buzzvm_t vm) {
       /* If data is available, filter it */
       if(data->o.type == BUZZTYPE_TABLE) {
          /* Create a new data table */
-         buzzobj_t nonkindata = buzzheap_newobj(vm->heap, BUZZTYPE_TABLE);
+         buzzobj_t nonkindata = buzzheap_newobj(vm, BUZZTYPE_TABLE);
          /* Filter the neighbors in data and add them to nonkindata */
          struct neighbor_filter_s fdata = { .vm = vm, .swarm_id = swarmid, .result = nonkindata->t.value };
          buzzdict_foreach(data->t.value, neighbor_filter_nonkin, &fdata);
@@ -371,8 +371,9 @@ struct neighbor_map_each_s {
 };
 
 void neighbor_map_each(const void* key, void* data, void* params) {
-   buzzobj_t rid = *(buzzobj_t*)key;
    struct neighbor_map_each_s* d = (struct neighbor_map_each_s*)params;
+   if(d->vm->state != BUZZVM_STATE_READY) return;
+   buzzobj_t rid = *(buzzobj_t*)key;
    /* Save current stack size */
    uint32_t ss = buzzvm_stack_top(d->vm);
    /* Push closure and params (key, value) */
@@ -381,6 +382,7 @@ void neighbor_map_each(const void* key, void* data, void* params) {
    buzzvm_push(d->vm, *(buzzobj_t*)data);
    /* Call closure */
    d->vm->state = buzzvm_closure_call(d->vm, 2);
+   if(d->vm->state != BUZZVM_STATE_READY) return;
    /* Make sure a value was returned */
    if(buzzvm_stack_top(d->vm) <= ss) {
       /* Error */
@@ -417,7 +419,7 @@ int buzzneighbors_map(buzzvm_t vm) {
       buzzvm_type_assert(vm, 1, BUZZTYPE_CLOSURE);
       buzzobj_t closure = buzzvm_stack_at(vm, 1);
       /* Create a new data table */
-      buzzobj_t mapdata = buzzheap_newobj(vm->heap, BUZZTYPE_TABLE);
+      buzzobj_t mapdata = buzzheap_newobj(vm, BUZZTYPE_TABLE);
       /* Add mapdata as the "data" field in t */
       buzzvm_push(vm, t);
       buzzvm_pushs(vm, buzzvm_string_register(vm, "data", 1));
@@ -460,6 +462,7 @@ void neighbor_reduce(const void* key, void* data, void* params) {
    buzzvm_push(d->vm, accum);
    /* Call closure - the accumulator is left on the stack */
    d->vm->state = buzzvm_closure_call(d->vm, 3);
+   if(d->vm->state != BUZZVM_STATE_READY) return;
    /* Make sure a value was returned */
    if(buzzvm_stack_top(d->vm) <= ss) {
       /* Error */
@@ -512,8 +515,9 @@ struct neighbor_filter_each_s {
 };
 
 void neighbor_filter_each(const void* key, void* data, void* params) {
-   buzzobj_t rid = *(buzzobj_t*)key;
    struct neighbor_filter_each_s* d = (struct neighbor_filter_each_s*)params;
+   if(d->vm->state != BUZZVM_STATE_READY) return;
+   buzzobj_t rid = *(buzzobj_t*)key;
    /* Save current stack size */
    uint32_t ss = buzzvm_stack_top(d->vm);
    /* Push closure and params (key, value) */
@@ -522,6 +526,7 @@ void neighbor_filter_each(const void* key, void* data, void* params) {
    buzzvm_push(d->vm, *(buzzobj_t*)data);
    /* Call closure */
    d->vm->state = buzzvm_closure_call(d->vm, 2);
+   if(d->vm->state != BUZZVM_STATE_READY) return;
    /* Make sure a value was returned */
    if(buzzvm_stack_top(d->vm) <= ss) {
       /* Error */
@@ -562,7 +567,7 @@ int buzzneighbors_filter(struct buzzvm_s* vm) {
       buzzvm_type_assert(vm, 1, BUZZTYPE_CLOSURE);
       buzzobj_t closure = buzzvm_stack_at(vm, 1);
       /* Create a new data table */
-      buzzobj_t mapdata = buzzheap_newobj(vm->heap, BUZZTYPE_TABLE);
+      buzzobj_t mapdata = buzzheap_newobj(vm, BUZZTYPE_TABLE);
       /* Add mapdata as the "data" field in t */
       buzzvm_push(vm, t);
       buzzvm_pushs(vm, buzzvm_string_register(vm, "data", 1));

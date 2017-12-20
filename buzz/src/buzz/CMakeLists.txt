@@ -1,9 +1,19 @@
 #
+# Create config file with settings that must be accessed from C
+#
+configure_file(
+  ${CMAKE_SOURCE_DIR}/buzz/config.h.in
+  ${CMAKE_BINARY_DIR}/buzz/config.h
+  @ONLY)
+install(FILES ${CMAKE_BINARY_DIR}/buzz/config.h DESTINATION include/buzz)
+
+#
 # Compile libbuzz
 #
 add_library(buzz SHARED
   buzzdarray.h buzzdarray.c
   buzzdict.h buzzdict.c
+  buzzset.h buzzset.c
   buzztype.h buzztype.c
   buzzheap.h buzzheap.c
   buzzmsg.h buzzmsg.c

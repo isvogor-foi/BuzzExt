@@ -2,6 +2,243 @@
 #include <argos3/core/utility/logging/argos_log.h>
 
 /****************************************/
+
+int BuzzSetArgosMap(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 1);
+   buzzvm_lload(vm, 1);
+   buzzvm_type_assert(vm, 1, BUZZTYPE_STRING);
+   std::string text = buzzvm_stack_at(vm, 1)->s.value.str;
+   /* Get pointer to the controller */
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+   /* Call function */
+   //printf("Value: %s", buzzvm_stack_at(vm, 1)->s.value.str);
+   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->SetArgosMap(text);
+   return buzzvm_ret0(vm);
+}
+
+int BuzzShowCoordinateSystem(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 5);
+   buzzvm_lload(vm, 1);
+   buzzvm_lload(vm, 2);
+   buzzvm_lload(vm, 3);
+   buzzvm_lload(vm, 4);
+   buzzvm_lload(vm, 5);
+   buzzvm_type_assert(vm, 5, BUZZTYPE_INT);
+   buzzvm_type_assert(vm, 4, BUZZTYPE_INT);
+   buzzvm_type_assert(vm, 3, BUZZTYPE_INT);
+   buzzvm_type_assert(vm, 2, BUZZTYPE_INT);
+   buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->SetArgosCoordinateIDs(
+         buzzvm_stack_at(vm, 6)->i.value,
+         buzzvm_stack_at(vm, 5)->i.value,
+         buzzvm_stack_at(vm, 4)->i.value,
+         buzzvm_stack_at(vm, 3)->i.value,
+         buzzvm_stack_at(vm, 2)->i.value);
+   return buzzvm_ret0(vm);
+}
+
+void di_read_elem(const void* key, void* data, void* params) {
+   int16_t k = *(const int16_t*)key;
+   buzzobj_t tData = *reinterpret_cast<buzzobj_t*>(data);
+   std::vector<float>* psParams = reinterpret_cast<std::vector<float>*>(params);
+
+   //int16_t k = *(const int16_t*)key;
+   //float d = *(float*)data;
+   //fprintf(stdout, "[%d] %f\n", k, d);
+
+   switch(tData->o.type) {
+      case BUZZTYPE_INT:
+         psParams->push_back((float)tData->i.value);
+         fprintf(stdout, "[buzz_controller_footbot.cpp] I: %d %d \n", k, tData->i.value);
+         break;
+      case BUZZTYPE_FLOAT:
+         psParams->push_back(tData->f.value);
+         fprintf(stdout, "[buzz_controller_footbot.cpp] F: %d %f \n", k, tData->f.value);
+         break;
+      break;
+      default:
+         fprintf(stdout, "[buzz_controller_footbot.cpp] Currently, only int and float items are supported!\n");
+      return;
+   }
+}
+
+int BuzzShowBorderRobots(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 1);
+
+   buzzvm_lload(vm, 1);
+   buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);
+   buzzobj_t t = buzzvm_stack_at(vm, 1);
+
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+
+   std::vector<float> v;
+   buzzdict_foreach(t->t.value, di_read_elem, &v);
+
+   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->m_border_robot_ids = v;
+   return buzzvm_ret0(vm);
+}
+
+void di_read_elem2(const void* key, void* data, void* params) {
+   const buzzobj_t tKey = *reinterpret_cast<const buzzobj_t*>(key);
+   buzzobj_t tData = *reinterpret_cast<buzzobj_t*>(data);
+
+   switch(tKey->o.type) {
+      case BUZZTYPE_INT:
+         fprintf(stdout, "%d:", tKey->i.value);
+         break;
+   case BUZZTYPE_FLOAT:
+      fprintf(stdout, "%f:", tKey->f.value);
+         break;
+   case BUZZTYPE_STRING:
+      fprintf(stdout, " %s: %f", tKey->s.value.str, tData->f.value);
+         break;
+   default:
+      return;
+   }
+}
+
+// proper way to send loooong 1D array
+int BuzzSetMap(buzzvm_t vm){
+      /* Make sure one parameter has been passed */
+      buzzvm_lnum_assert(vm, 1);
+      /* Get the parameter */
+      buzzvm_lload(vm, 1);
+      buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);    // matrix
+      /* Get the table */
+      buzzobj_t t = buzzvm_stack_at(vm, 1);
+      /* Copy the values into a vector */
+      std::vector<float> mat;
+      for(int32_t i = 0; i < buzzdict_size(t->t.value); ++i) {
+         /* Duplicate the table */
+         buzzvm_dup(vm);
+         /* Push the index */
+         buzzvm_pushi(vm, i);
+         /* Get the value */
+         buzzvm_tget(vm);
+         /* Store it in the vector (assume all values are float, no mistake...) */
+         mat.push_back((float)buzzvm_stack_at(vm, 1)->f.value);
+         /* Get rid of the value, now useless */
+         buzzvm_pop(vm);
+      }
+      /* Get a pointer to the controller */
+      buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+      buzzvm_gload(vm);
+      /* Copy data into the controller */
+      reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->SetMapParams(mat, Sqrt(buzzdict_size(t->t.value)));
+      /* Done with the function */
+      return buzzvm_ret0(vm);
+}
+
+
+int BuzzSetPath(buzzvm_t vm){
+      buzzvm_lnum_assert(vm, 1);
+      /* Get the parameter */
+      buzzvm_lload(vm, 1);
+      buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);    // dictionary
+      buzzobj_t t = buzzvm_stack_at(vm, 1);
+      std::vector<CBuzzControllerFootBot::PathItem> pis;
+      for(int32_t i = 0; i < buzzdict_size(t->t.value); ++i) {
+         buzzvm_dup(vm);
+         buzzvm_pushi(vm, i);
+         buzzvm_tget(vm);
+         int id = 0; int parent = 0; float x = 0.0; float y = 0.0;
+        for(int32_t j = 0; j < buzzdict_size(buzzvm_stack_at(vm, 1)->t.value); ++j) {
+            buzzvm_dup(vm);
+           buzzvm_pushi(vm, j);
+            buzzvm_tget(vm);
+            if(j == 0){
+              id = (float)buzzvm_stack_at(vm, 1)->i.value;
+            } else if(j == 1){
+              parent = (float)buzzvm_stack_at(vm, 1)->i.value;
+            } else if (j == 2){
+              x = (float)buzzvm_stack_at(vm, 1)->f.value;
+            } else if (j == 3){
+              y = (float)buzzvm_stack_at(vm, 1)->f.value;
+            }
+           //fprintf(stdout, "%d %f \n", j, (float)buzzvm_stack_at(vm, 1)->f.value);
+           buzzvm_pop(vm);
+        }
+         pis.push_back(CBuzzControllerFootBot::PathItem(id, parent, x, y));
+
+         buzzvm_pop(vm);
+      }
+
+      /* Get a pointer to the controller */
+      buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+      buzzvm_gload(vm);
+      /* Copy data into the controller */
+      reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->Done(pis);
+      /* Done with the function */
+      return buzzvm_ret0(vm);
+}
+
+// proper way to send loooong 1D array
+
+int BuzzDrawObstacles(buzzvm_t vm){
+
+      buzzvm_lnum_assert(vm, 1);
+
+      buzzvm_lload(vm, 1);
+      buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);    // dictionary
+      buzzobj_t t = buzzvm_stack_at(vm, 1);
+      std::vector<CBuzzControllerFootBot::Obstacle> obs;
+      for(int32_t i = 0; i < buzzdict_size(t->t.value); ++i) {
+         buzzvm_dup(vm);
+         buzzvm_pushi(vm, i);
+         buzzvm_tget(vm);
+         float x = 0.0; float y = 0.0; float radius = 0.0;
+         int type = 0;
+        for(int32_t j = 0; j < buzzdict_size(buzzvm_stack_at(vm, 1)->t.value); ++j) {
+            buzzvm_dup(vm);
+           buzzvm_pushi(vm, j);
+            buzzvm_tget(vm);
+            if(j == 0){
+              x = (float)buzzvm_stack_at(vm, 1)->f.value;
+            } else if(j == 1){
+              y = (float)buzzvm_stack_at(vm, 1)->f.value;
+            } else if (j == 2){
+              radius = (float)buzzvm_stack_at(vm, 1)->f.value;
+            } else if (j == 3){
+              type = (int) buzzvm_stack_at(vm, 1)->i.value;
+            }
+           //fprintf(stdout, "%d %f \n", j, (float)buzzvm_stack_at(vm, 1)->f.value);
+           buzzvm_pop(vm);
+        }
+         obs.push_back(CBuzzControllerFootBot::Obstacle(x, y, radius, type));
+         buzzvm_pop(vm);
+      }
+
+      buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+      buzzvm_gload(vm);
+      reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->ArgosDrawObstacles(obs);
+
+      return buzzvm_ret0(vm);
+}
+
+
+
+int BuzzRemoveCS(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 1);
+   buzzvm_lload(vm, 1);
+
+   buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
+   int id = buzzvm_stack_at(vm, 1)->i.value;
+
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+
+   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->RemoveCS(id);
+   return buzzvm_ret0(vm);
+}
+
+
+
+/****************************************/
+/****************************************/
 /****************************************/
 
 CBuzzControllerFootBot::SWheelTurningParams::SWheelTurningParams() :
@@ -12,6 +249,7 @@ CBuzzControllerFootBot::SWheelTurningParams::SWheelTurningParams() :
    MaxSpeed(10.0)
 {
 }
+
 
 /****************************************/
 /****************************************/
@@ -36,37 +274,36 @@ void CBuzzControllerFootBot::SWheelTurningParams::Init(TConfigurationNode& t_nod
 /****************************************/
 /****************************************/
 
-static int BuzzGoTo(buzzvm_t vm) {
+static int BuzzGoToC(buzzvm_t vm) {
    /* Push the vector components */
    buzzvm_lload(vm, 1);
    buzzvm_lload(vm, 2);
    /* Create a new vector with that */
-   buzzobj_t tLS = buzzvm_stack_at(vm, 2);
-   buzzobj_t tRS = buzzvm_stack_at(vm, 1);
-   Real fLS = 0.0, fRS = 0.0;
-   if(tLS->o.type == BUZZTYPE_INT) fLS = tLS->i.value;
-   else if(tLS->o.type == BUZZTYPE_FLOAT) fLS = tLS->f.value;
+   buzzobj_t tX = buzzvm_stack_at(vm, 2);
+   buzzobj_t tY = buzzvm_stack_at(vm, 1);
+   CVector2 cDir;
+   if(tX->o.type == BUZZTYPE_INT) cDir.SetX(tX->i.value);
+   else if(tX->o.type == BUZZTYPE_FLOAT) cDir.SetX(tX->f.value);
    else {
       buzzvm_seterror(vm,
                       BUZZVM_ERROR_TYPE,
-                      "goto(x,y): expected %s, got %s in first argument",
+                      "gotoc(x,y): expected %s, got %s in first argument",
                       buzztype_desc[BUZZTYPE_FLOAT],
-                      buzztype_desc[tLS->o.type]
+                      buzztype_desc[tX->o.type]
          );
       return vm->state;
    }      
-   if(tRS->o.type == BUZZTYPE_INT) fRS = tRS->i.value;
-   else if(tRS->o.type == BUZZTYPE_FLOAT) fRS = tRS->f.value;
+   if(tY->o.type == BUZZTYPE_INT) cDir.SetY(tY->i.value);
+   else if(tY->o.type == BUZZTYPE_FLOAT) cDir.SetY(tY->f.value);
    else {
       buzzvm_seterror(vm,
                       BUZZVM_ERROR_TYPE,
-                      "goto(x,y): expected %s, got %s in second argument",
+                      "gotoc(x,y): expected %s, got %s in second argument",
                       buzztype_desc[BUZZTYPE_FLOAT],
-                      buzztype_desc[tRS->o.type]
+                      buzztype_desc[tY->o.type]
          );
       return vm->state;
    }
-   CVector2 cDir(fLS, fRS);
    /* Get pointer to the controller */
    buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
    buzzvm_gload(vm);
@@ -78,7 +315,49 @@ static int BuzzGoTo(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
-int BuzzSetWheels(buzzvm_t vm) {
+static int BuzzGoToP(buzzvm_t vm) {
+   /* Push the vector components */
+   buzzvm_lload(vm, 1);
+   buzzvm_lload(vm, 2);
+   /* Create a new vector with that */
+   buzzobj_t tLinSpeed = buzzvm_stack_at(vm, 2);
+   buzzobj_t tAngSpeed = buzzvm_stack_at(vm, 1);
+   Real fLinSpeed = 0.0, fAngSpeed = 0.0;
+   if(tLinSpeed->o.type == BUZZTYPE_INT) fLinSpeed = tLinSpeed->i.value;
+   else if(tLinSpeed->o.type == BUZZTYPE_FLOAT) fLinSpeed = tLinSpeed->f.value;
+   else {
+      buzzvm_seterror(vm,
+                      BUZZVM_ERROR_TYPE,
+                      "gotop(linspeed,angspeed): expected %s, got %s in first argument",
+                      buzztype_desc[BUZZTYPE_FLOAT],
+                      buzztype_desc[tLinSpeed->o.type]
+         );
+      return vm->state;
+   }      
+   if(tAngSpeed->o.type == BUZZTYPE_INT) fAngSpeed = tAngSpeed->i.value;
+   else if(tAngSpeed->o.type == BUZZTYPE_FLOAT) fAngSpeed = tAngSpeed->f.value;
+   else {
+      buzzvm_seterror(vm,
+                      BUZZVM_ERROR_TYPE,
+                      "gotop(linspeed,angspeed): expected %s, got %s in second argument",
+                      buzztype_desc[BUZZTYPE_FLOAT],
+                      buzztype_desc[tAngSpeed->o.type]
+         );
+      return vm->state;
+   }
+   CVector2 cDir(fLinSpeed, CRadians(fAngSpeed));
+   /* Get pointer to the controller */
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
+   buzzvm_gload(vm);
+   /* Call function */
+   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->SetWheelSpeedsFromVector(cDir);
+   return buzzvm_ret0(vm);
+}
+
+/****************************************/
+/****************************************/
+
+static int BuzzSetWheels(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 2);
    /* Push speeds */
    buzzvm_lload(vm, 1); /* Left speed */
@@ -100,7 +379,7 @@ int BuzzSetWheels(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
-int BuzzSetLEDs(buzzvm_t vm) {
+static int BuzzSetLEDs(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 3);
    /* Push the color components */
    buzzvm_lload(vm, 1);
@@ -124,315 +403,21 @@ int BuzzSetLEDs(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
-int BuzzSetArgosMap(buzzvm_t vm) {
-   buzzvm_lnum_assert(vm, 1);
-   buzzvm_lload(vm, 1);
-   buzzvm_type_assert(vm, 1, BUZZTYPE_STRING);
-   std::string text = buzzvm_stack_at(vm, 1)->s.value.str;
+static int BuzzCameraEnable(buzzvm_t vm) {
    /* Get pointer to the controller */
    buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
    buzzvm_gload(vm);
    /* Call function */
-   //printf("Value: %s", buzzvm_stack_at(vm, 1)->s.value.str);
-   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->SetArgosMap(text);
+   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->CameraEnable();
    return buzzvm_ret0(vm);
 }
 
-/****************************************/
-/****************************************/
-
-int BuzzShowCoordinateSystem(buzzvm_t vm) {
-   buzzvm_lnum_assert(vm, 5);
-   buzzvm_lload(vm, 1);
-   buzzvm_lload(vm, 2);
-   buzzvm_lload(vm, 3);
-   buzzvm_lload(vm, 4);
-   buzzvm_lload(vm, 5);
-   buzzvm_type_assert(vm, 5, BUZZTYPE_INT);
-   buzzvm_type_assert(vm, 4, BUZZTYPE_INT);
-   buzzvm_type_assert(vm, 3, BUZZTYPE_INT);
-   buzzvm_type_assert(vm, 2, BUZZTYPE_INT);
-   buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
+static int BuzzCameraDisable(buzzvm_t vm) {
+   /* Get pointer to the controller */
    buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
    buzzvm_gload(vm);
-   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->SetArgosCoordinateIDs(
-		   buzzvm_stack_at(vm, 6)->i.value,
-		   buzzvm_stack_at(vm, 5)->i.value,
-		   buzzvm_stack_at(vm, 4)->i.value,
-		   buzzvm_stack_at(vm, 3)->i.value,
-		   buzzvm_stack_at(vm, 2)->i.value);
-   return buzzvm_ret0(vm);
-}
-
-
-/****************************************/
-/****************************************/
-
-void di_read_elem(const void* key, void* data, void* params) {
-	int16_t k = *(const int16_t*)key;
-	buzzobj_t tData = *reinterpret_cast<buzzobj_t*>(data);
-	std::vector<float>* psParams = reinterpret_cast<std::vector<float>*>(params);
-
-	//int16_t k = *(const int16_t*)key;
-	//float d = *(float*)data;
-	//fprintf(stdout, "[%d] %f\n", k, d);
-
-	switch(tData->o.type) {
-		case BUZZTYPE_INT:
-			psParams->push_back((float)tData->i.value);
-			fprintf(stdout, "[buzz_controller_footbot.cpp] I: %d %d \n", k, tData->i.value);
-			break;
-		case BUZZTYPE_FLOAT:
-			psParams->push_back(tData->f.value);
-			fprintf(stdout, "[buzz_controller_footbot.cpp] F: %d %f \n", k, tData->f.value);
-			break;
-		break;
-		default:
-			fprintf(stdout, "[buzz_controller_footbot.cpp] Currently, only int and float items are supported!\n");
-		return;
-	}
-}
-
-int BuzzShowBorderRobots(buzzvm_t vm) {
-   buzzvm_lnum_assert(vm, 1);
-
-   buzzvm_lload(vm, 1);
-   buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);
-   buzzobj_t t = buzzvm_stack_at(vm, 1);
-
-   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
-   buzzvm_gload(vm);
-
-   std::vector<float> v;
-   buzzdict_foreach(t->t.value, di_read_elem, &v);
-
-   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->m_border_robot_ids = v;
-   return buzzvm_ret0(vm);
-}
-
-void di_read_elem2(const void* key, void* data, void* params) {
-	const buzzobj_t tKey = *reinterpret_cast<const buzzobj_t*>(key);
-	buzzobj_t tData = *reinterpret_cast<buzzobj_t*>(data);
-
-	switch(tKey->o.type) {
-		case BUZZTYPE_INT:
-			fprintf(stdout, "%d:", tKey->i.value);
-			break;
-	case BUZZTYPE_FLOAT:
-		fprintf(stdout, "%f:", tKey->f.value);
-			break;
-	case BUZZTYPE_STRING:
-		fprintf(stdout, " %s: %f", tKey->s.value.str, tData->f.value);
-			break;
-	default:
-		return;
-	}
-}
-
-// proper way to send loooong 1D array
-int BuzzSetMap(buzzvm_t vm){
-	   /* Make sure one parameter has been passed */
-	   buzzvm_lnum_assert(vm, 1);
-	   /* Get the parameter */
-	   buzzvm_lload(vm, 1);
-	   buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);    // matrix
-	   /* Get the table */
-	   buzzobj_t t = buzzvm_stack_at(vm, 1);
-	   /* Copy the values into a vector */
-	   std::vector<float> mat;
-	   for(int32_t i = 0; i < buzzdict_size(t->t.value); ++i) {
-	      /* Duplicate the table */
-	      buzzvm_dup(vm);
-	      /* Push the index */
-	      buzzvm_pushi(vm, i);
-	      /* Get the value */
-	      buzzvm_tget(vm);
-	      /* Store it in the vector (assume all values are float, no mistake...) */
-	      mat.push_back((float)buzzvm_stack_at(vm, 1)->f.value);
-	      /* Get rid of the value, now useless */
-	      buzzvm_pop(vm);
-	   }
-	   /* Get a pointer to the controller */
-	   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
-	   buzzvm_gload(vm);
-	   /* Copy data into the controller */
-	   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->SetMapParams(mat, Sqrt(buzzdict_size(t->t.value)));
-	   /* Done with the function */
-	   return buzzvm_ret0(vm);
-}
-
-
-
-/*
-void read_params(const void* key, void* data, void* params) {
-	//const buzzobj_t tKey = *reinterpret_cast<const buzzobj_t*>(key);
-	//char* tKey = (char*)(key);
-	buzzobj_t tData = *reinterpret_cast<buzzobj_t*>(data);
-	std::vector<float> *parameters = reinterpret_cast<std::vector<float>*>(params);
-	//fprintf(stdout, "Key: %s ", tKey->s.value.str);
-
-
-	if(tData->o.type == BUZZTYPE_FLOAT){
-		parameters->push_back(tData->f.value);
-		//fprintf(stdout, "Key: %f ", tData->f.value);
-	} else {
-		parameters->push_back((float)tData->i.value);
-		//fprintf(stdout, "Key: %d ", tData->i.value);
-	}
-}
-*/
-/*
-int BuzzSetPath2(buzzvm_t vm){
-	   buzzvm_lnum_assert(vm, 1);
-	   // Get the parameter
-	   buzzvm_lload(vm, 1);
-	   buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);    // dictionary
-	   buzzobj_t t = buzzvm_stack_at(vm, 1);
-	   std::vector<float> *params = new std::vector<float>();
-	   for(int32_t i = 0; i < buzzdict_size(t->t.value); ++i) {
-		  buzzvm_dup(vm);
-		  buzzvm_pushi(vm, i);
-		  buzzvm_tget(vm);
-		  buzzdict_foreach(buzzvm_stack_at(vm, 1)->t.value, read_params, params);
-		  //fprintf(stdout, "\n");
-		  buzzvm_pop(vm);
-	   }
-	   // Get a pointer to the controller
-	   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
-	   buzzvm_gload(vm);
-
-	   // Copy data into the controller
-	   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->Done(params);
-	   // Done with the function
-	   return buzzvm_ret0(vm);
-}
-
-int BuzzSetPath3(buzzvm_t vm){
-	   buzzvm_lnum_assert(vm, 1);
-	   // Get the parameter
-	   buzzvm_lload(vm, 1);
-	   buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);    // dictionary
-	   buzzobj_t t = buzzvm_stack_at(vm, 1);
-	   std::vector<float> *params = new std::vector<float>();
-	   for(int32_t i = 0; i < buzzdict_size(t->t.value); ++i) {
-		  buzzvm_dup(vm);
-		  buzzvm_pushi(vm, i);
-		  buzzvm_tget(vm);
-		  buzzdict_foreach(buzzvm_stack_at(vm, 1)->t.value, read_params, params);
-		  //fprintf(stdout, "\n");
-		  buzzvm_pop(vm);
-	   }
-	   // Get a pointer to the controller
-	   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
-	   buzzvm_gload(vm);
-
-	   // Copy data into the controller
-	   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->Done(params);
-	   // Done with the function
-	   return buzzvm_ret0(vm);
-}
-*/
-
-int BuzzSetPath(buzzvm_t vm){
-	   buzzvm_lnum_assert(vm, 1);
-	   /* Get the parameter */
-	   buzzvm_lload(vm, 1);
-	   buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);    // dictionary
-	   buzzobj_t t = buzzvm_stack_at(vm, 1);
-	   std::vector<CBuzzControllerFootBot::PathItem> pis;
-	   for(int32_t i = 0; i < buzzdict_size(t->t.value); ++i) {
-	      buzzvm_dup(vm);
-	      buzzvm_pushi(vm, i);
-	      buzzvm_tget(vm);
-	      int id = 0; int parent = 0; float x = 0.0; float y = 0.0;
-		  for(int32_t j = 0; j < buzzdict_size(buzzvm_stack_at(vm, 1)->t.value); ++j) {
-		      buzzvm_dup(vm);
-			  buzzvm_pushi(vm, j);
-		      buzzvm_tget(vm);
-		      if(j == 0){
-		    	  id = (float)buzzvm_stack_at(vm, 1)->i.value;
-		      } else if(j == 1){
-		    	  parent = (float)buzzvm_stack_at(vm, 1)->i.value;
-		      } else if (j == 2){
-		    	  x = (float)buzzvm_stack_at(vm, 1)->f.value;
-		      } else if (j == 3){
-		    	  y = (float)buzzvm_stack_at(vm, 1)->f.value;
-		      }
-			  //fprintf(stdout, "%d %f \n", j, (float)buzzvm_stack_at(vm, 1)->f.value);
-			  buzzvm_pop(vm);
-		  }
-	      pis.push_back(CBuzzControllerFootBot::PathItem(id, parent, x, y));
-
-	      buzzvm_pop(vm);
-	   }
-
-	   /* Get a pointer to the controller */
-	   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
-	   buzzvm_gload(vm);
-	   /* Copy data into the controller */
-	   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->Done(pis);
-	   /* Done with the function */
-	   return buzzvm_ret0(vm);
-}
-
-// proper way to send loooong 1D array
-
-int BuzzDrawObstacles(buzzvm_t vm){
-
-	   buzzvm_lnum_assert(vm, 1);
-
-	   buzzvm_lload(vm, 1);
-	   buzzvm_type_assert(vm, 1, BUZZTYPE_TABLE);    // dictionary
-	   buzzobj_t t = buzzvm_stack_at(vm, 1);
-	   std::vector<CBuzzControllerFootBot::Obstacle> obs;
-	   for(int32_t i = 0; i < buzzdict_size(t->t.value); ++i) {
-	      buzzvm_dup(vm);
-	      buzzvm_pushi(vm, i);
-	      buzzvm_tget(vm);
-	      float x = 0.0; float y = 0.0; float radius = 0.0;
-	      int type = 0;
-		  for(int32_t j = 0; j < buzzdict_size(buzzvm_stack_at(vm, 1)->t.value); ++j) {
-		      buzzvm_dup(vm);
-			  buzzvm_pushi(vm, j);
-		      buzzvm_tget(vm);
-		      if(j == 0){
-		    	  x = (float)buzzvm_stack_at(vm, 1)->f.value;
-		      } else if(j == 1){
-		    	  y = (float)buzzvm_stack_at(vm, 1)->f.value;
-		      } else if (j == 2){
-		    	  radius = (float)buzzvm_stack_at(vm, 1)->f.value;
-		      } else if (j == 3){
-		    	  type = (int) buzzvm_stack_at(vm, 1)->i.value;
-		      }
-			  //fprintf(stdout, "%d %f \n", j, (float)buzzvm_stack_at(vm, 1)->f.value);
-			  buzzvm_pop(vm);
-		  }
-	      obs.push_back(CBuzzControllerFootBot::Obstacle(x, y, radius, type));
-	      buzzvm_pop(vm);
-	   }
-
-	   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
-	   buzzvm_gload(vm);
-	   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->ArgosDrawObstacles(obs);
-
-	   return buzzvm_ret0(vm);
-}
-
-
-/****************************************/
-/****************************************/
-
-int BuzzRemoveCS(buzzvm_t vm) {
-   buzzvm_lnum_assert(vm, 1);
-   buzzvm_lload(vm, 1);
-
-   buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
-   int id = buzzvm_stack_at(vm, 1)->i.value;
-
-   buzzvm_pushs(vm, buzzvm_string_register(vm, "controller", 1));
-   buzzvm_gload(vm);
-
-   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->RemoveCS(id);
+   /* Call function */
+   reinterpret_cast<CBuzzControllerFootBot*>(buzzvm_stack_at(vm, 1)->u.value)->CameraDisable();
    return buzzvm_ret0(vm);
 }
 
@@ -442,7 +427,8 @@ int BuzzRemoveCS(buzzvm_t vm) {
 CBuzzControllerFootBot::CBuzzControllerFootBot() :
    m_pcWheels(NULL),
    m_pcLEDs(NULL),
-   m_pcProximity(NULL) {
+   m_pcProximity(NULL),
+   m_pcCamera(NULL) {
 }
 
 /****************************************/
@@ -462,13 +448,11 @@ void CBuzzControllerFootBot::Init(TConfigurationNode& t_node) {
          m_sWheelTurningParams.Init(GetNode(t_node, "wheel_turning"));
       }
       catch(CARGoSException& ex) {}
-      try {
-         m_pcLEDs = GetActuator<CCI_LEDsActuator>("leds");
-      }
+      try { m_pcLEDs = GetActuator<CCI_LEDsActuator>("leds"); }
       catch(CARGoSException& ex) {}
-      try {
-         m_pcProximity = GetSensor<CCI_FootBotProximitySensor>("footbot_proximity");
-      }
+      try { m_pcProximity = GetSensor<CCI_FootBotProximitySensor>("footbot_proximity"); }
+      catch(CARGoSException& ex) {}
+      try { m_pcCamera = GetSensor<CCI_ColoredBlobOmnidirectionalCameraSensor>("colored_blob_omnidirectional_camera"); }
       catch(CARGoSException& ex) {}
       /* Initialize the rest */
       CBuzzController::Init(t_node);
@@ -511,6 +495,25 @@ void CBuzzControllerFootBot::UpdateSensors() {
          TablePut(tProxTable, i, tProxRead);
       }
    }
+   /*
+    * Camera
+    */
+   if(m_pcCamera) {
+      buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "blobs", 1));
+      buzzvm_pusht(m_tBuzzVM);
+      buzzobj_t tBlobs = buzzvm_stack_at(m_tBuzzVM, 1);
+      buzzvm_gstore(m_tBuzzVM);
+      const CCI_ColoredBlobOmnidirectionalCameraSensor::SReadings& sBlobs = m_pcCamera->GetReadings();
+      for(size_t i = 0; i < sBlobs.BlobList.size(); ++i) {
+         buzzvm_pusht(m_tBuzzVM);
+         buzzobj_t tEntry = buzzvm_stack_at(m_tBuzzVM, 1);
+         buzzvm_pop(m_tBuzzVM);
+         TablePut(tBlobs, i, tEntry);
+         TablePut(tEntry, "distance", sBlobs.BlobList[i]->Distance);
+         TablePut(tEntry, "angle",    sBlobs.BlobList[i]->Angle);
+         TablePut(tEntry, "color",    sBlobs.BlobList[i]->Color);
+      }
+   }
 }
 
 /****************************************/
@@ -523,22 +526,28 @@ void CBuzzControllerFootBot::SetWheelSpeedsFromVector(const CVector2& c_heading)
    Real fHeadingLength = c_heading.Length();
    /* Clamp the speed so that it's not greater than MaxSpeed */
    Real fBaseAngularWheelSpeed = Min<Real>(fHeadingLength, m_sWheelTurningParams.MaxSpeed);
-
-   /* Turning state switching conditions */
-   if(Abs(cHeadingAngle) <= m_sWheelTurningParams.NoTurnAngleThreshold) {
-      /* No Turn, heading angle very small */
-      m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::NO_TURN;
+   /* State transition logic */
+   if(m_sWheelTurningParams.TurningMechanism == SWheelTurningParams::HARD_TURN) {
+      if(Abs(cHeadingAngle) <= m_sWheelTurningParams.SoftTurnOnAngleThreshold) {
+         m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::SOFT_TURN;
+      }
    }
-   else if(Abs(cHeadingAngle) > m_sWheelTurningParams.HardTurnOnAngleThreshold) {
-      /* Hard Turn, heading angle very large */
-      m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::HARD_TURN;
+   if(m_sWheelTurningParams.TurningMechanism == SWheelTurningParams::SOFT_TURN) {
+      if(Abs(cHeadingAngle) > m_sWheelTurningParams.HardTurnOnAngleThreshold) {
+         m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::HARD_TURN;
+      }
+      else if(Abs(cHeadingAngle) <= m_sWheelTurningParams.NoTurnAngleThreshold) {
+         m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::NO_TURN;
+      }
    }
-   else if(m_sWheelTurningParams.TurningMechanism == SWheelTurningParams::NO_TURN &&
-           Abs(cHeadingAngle) > m_sWheelTurningParams.SoftTurnOnAngleThreshold) {
-      /* Soft Turn, heading angle in between the two cases */
-      m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::SOFT_TURN;
+   if(m_sWheelTurningParams.TurningMechanism == SWheelTurningParams::NO_TURN) {
+      if(Abs(cHeadingAngle) > m_sWheelTurningParams.HardTurnOnAngleThreshold) {
+         m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::HARD_TURN;
+      }
+      else if(Abs(cHeadingAngle) > m_sWheelTurningParams.NoTurnAngleThreshold) {
+         m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::SOFT_TURN;
+      }
    }
-
    /* Wheel speeds based on current turning state */
    Real fSpeed1, fSpeed2;
    switch(m_sWheelTurningParams.TurningMechanism) {
@@ -548,7 +557,6 @@ void CBuzzControllerFootBot::SetWheelSpeedsFromVector(const CVector2& c_heading)
          fSpeed2 = fBaseAngularWheelSpeed;
          break;
       }
-
       case SWheelTurningParams::SOFT_TURN: {
          /* Both wheels go straight, but one is faster than the other */
          Real fSpeedFactor = (m_sWheelTurningParams.HardTurnOnAngleThreshold - Abs(cHeadingAngle)) / m_sWheelTurningParams.HardTurnOnAngleThreshold;
@@ -556,7 +564,6 @@ void CBuzzControllerFootBot::SetWheelSpeedsFromVector(const CVector2& c_heading)
          fSpeed2 = fBaseAngularWheelSpeed + fBaseAngularWheelSpeed * (1.0 - fSpeedFactor);
          break;
       }
-
       case SWheelTurningParams::HARD_TURN: {
          /* Opposite wheel speeds */
          fSpeed1 = -m_sWheelTurningParams.MaxSpeed;
@@ -564,7 +571,6 @@ void CBuzzControllerFootBot::SetWheelSpeedsFromVector(const CVector2& c_heading)
          break;
       }
    }
-
    /* Apply the calculated speeds to the appropriate wheels */
    Real fLeftWheelSpeed, fRightWheelSpeed;
    if(cHeadingAngle > CRadians::ZERO) {
@@ -591,77 +597,83 @@ void CBuzzControllerFootBot::SetWheels(Real f_left_speed,
 }
 
 /****************************************/
-
-void CBuzzControllerFootBot::SetArgosMap(std::string map) {
-	m_map_string = map;
-}
-
-/****************************************/
-/****************************************/
-
-void CBuzzControllerFootBot::SetArgosCoordinateIDs(int cs_id, int leader_id, int ref1_id, int ref2_id, int redraw) {
-	bool m_redraw = false;
-	if(redraw == 0){
-		m_redraw = false;
-	} else {
-		m_redraw = true;
-	}
-
-	if(std::find(m_cs.begin(), m_cs.end(), cs_id) == m_cs.end()){
-		m_cs.push_back(CBuzzControllerFootBot::CoordinateSystem(cs_id, leader_id, ref1_id, ref2_id, m_redraw));
-	}
-}
-
-void CBuzzControllerFootBot::RemoveCS(int cs_id) {
-	m_cs.erase(std::remove(m_cs.begin(), m_cs.end(), cs_id), m_cs.end());
-}
-
-std::vector<CBuzzControllerFootBot::CoordinateSystem> CBuzzControllerFootBot::GetRobotsForCS(){
-	return m_cs;
-}
-/****************************************/
-/****************************************/
-
-void CBuzzControllerFootBot::SetMapParams(std::vector<float> map, float size){
-	m_map = map;
-	map_size = size;
-}
-
-/****************************************/
-/****************************************/
-
-void CBuzzControllerFootBot::Done(std::vector<CBuzzControllerFootBot::PathItem> pis){
-
-	current_path = pis;
-}
-
-void CBuzzControllerFootBot::ArgosDrawObstacles(std::vector<CBuzzControllerFootBot::Obstacle> obs){
-	obstacles = obs;
-}
-
-
-
-/****************************************/
-/****************************************/
-
-std::vector<float> CBuzzControllerFootBot::GetBorderRobotIds() {
-	return m_border_robot_ids;
-}
-
-/****************************************/
-/****************************************/
-
-std::string CBuzzControllerFootBot::GetArgosMap() {
-	return m_map_string;
-}
-
-/****************************************/
 /****************************************/
 
 void CBuzzControllerFootBot::SetLEDs(const CColor& c_color) {
    m_pcLEDs->SetAllColors(c_color);
 }
 
+/****************************************/
+/****************************************/
+
+void CBuzzControllerFootBot::CameraEnable() {
+   m_pcCamera->Enable();
+}
+
+/****************************************/
+/****************************************/
+
+void CBuzzControllerFootBot::CameraDisable() {
+   m_pcCamera->Disable();
+}
+
+/****************************************/
+/****************************************/
+/****************************************/
+/****************************************/
+
+void CBuzzControllerFootBot::SetArgosMap(std::string map) {
+   m_map_string = map;
+}
+
+void CBuzzControllerFootBot::SetArgosCoordinateIDs(int cs_id, int leader_id, int ref1_id, int ref2_id, int redraw) {
+   bool m_redraw = false;
+   if(redraw == 0){
+      m_redraw = false;
+   } else {
+      m_redraw = true;
+   }
+
+   if(std::find(m_cs.begin(), m_cs.end(), cs_id) == m_cs.end()){
+      m_cs.push_back(CBuzzControllerFootBot::CoordinateSystem(cs_id, leader_id, ref1_id, ref2_id, m_redraw));
+   }
+}
+
+void CBuzzControllerFootBot::RemoveCS(int cs_id) {
+   m_cs.erase(std::remove(m_cs.begin(), m_cs.end(), cs_id), m_cs.end());
+}
+
+std::vector<CBuzzControllerFootBot::CoordinateSystem> CBuzzControllerFootBot::GetRobotsForCS(){
+   return m_cs;
+}
+
+void CBuzzControllerFootBot::SetMapParams(std::vector<float> map, float size){
+   m_map = map;
+   map_size = size;
+}
+
+
+void CBuzzControllerFootBot::Done(std::vector<CBuzzControllerFootBot::PathItem> pis){
+
+   current_path = pis;
+}
+
+void CBuzzControllerFootBot::ArgosDrawObstacles(std::vector<CBuzzControllerFootBot::Obstacle> obs){
+   obstacles = obs;
+}
+
+
+std::vector<float> CBuzzControllerFootBot::GetBorderRobotIds() {
+   return m_border_robot_ids;
+}
+
+
+std::string CBuzzControllerFootBot::GetArgosMap() {
+   return m_map_string;
+}
+
+/****************************************/
+/****************************************/
 /****************************************/
 /****************************************/
 
@@ -673,17 +685,37 @@ buzzvm_state CBuzzControllerFootBot::RegisterFunctions() {
       buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "set_wheels", 1));
       buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetWheels));
       buzzvm_gstore(m_tBuzzVM);
-      /* BuzzGoTo */
+      /* BuzzGoTo with Cartesian coordinates */
       buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "goto", 1));
-      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzGoTo));
+      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzGoToC));
+      buzzvm_gstore(m_tBuzzVM);
+      buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "gotoc", 1));
+      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzGoToC));
+      buzzvm_gstore(m_tBuzzVM);
+      /* BuzzGoTo with Polar coordinates */
+      buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "gotop", 1));
+      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzGoToP));
       buzzvm_gstore(m_tBuzzVM);
    }
    if(m_pcLEDs) {
       /* BuzzSetLEDs */
-      buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "setleds", 1));
+      buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "set_leds", 1));
       buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetLEDs));
       buzzvm_gstore(m_tBuzzVM);
    }
+   if(m_pcCamera) {
+      /* BuzzCameraEnable */
+      buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "camera_enable", 1));
+      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzCameraEnable));
+      buzzvm_gstore(m_tBuzzVM);
+   }
+   if(m_pcCamera) {
+      /* BuzzCameraDisable */
+      buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "camera_disable", 1));
+      buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzCameraDisable));
+      buzzvm_gstore(m_tBuzzVM);
+   }
+
    /* BuzzSetMap */
    buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, "set_argos_string_map", 1));
    buzzvm_pushcc(m_tBuzzVM, buzzvm_function_register(m_tBuzzVM, BuzzSetArgosMap));

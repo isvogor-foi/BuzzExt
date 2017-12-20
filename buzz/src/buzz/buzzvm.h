@@ -11,6 +11,9 @@
 
 #include <stdlib.h>
 #include <math.h>
+#ifndef __STDC_FORMAT_MACROS
+#   define __STDC_FORMAT_MACROS 1
+#endif
 #include <inttypes.h>
 
 #ifdef __cplusplus
@@ -140,6 +143,8 @@ extern "C" {
       uint32_t bcode_size;
       /* Program counter */
       int32_t pc;
+      /* Old program counter (for error reporting) */
+      int32_t oldpc;
       /* Current stack content */
       buzzdarray_t stack;
       /* Stack list */
@@ -643,24 +648,24 @@ extern "C" {
    buzzdarray_pop(vm->stack);                                           \
    if(op1->o.type == BUZZTYPE_INT &&                                    \
       op2->o.type == BUZZTYPE_INT) {                                    \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_INT);        \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_INT);        \
       res->i.value = op2->i.value oper op1->i.value;                    \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
    else if(op1->o.type == BUZZTYPE_INT &&                               \
            op2->o.type == BUZZTYPE_FLOAT) {                             \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = op2->f.value oper op1->i.value;                    \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
    else if(op1->o.type == BUZZTYPE_FLOAT &&                             \
            op2->o.type == BUZZTYPE_INT) {                               \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = op2->i.value oper op1->f.value;                    \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
    else {                                                               \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = op2->f.value oper op1->f.value;                    \
       buzzvm_push(vm, res);                                             \
    }
@@ -680,7 +685,7 @@ extern "C" {
    buzzobj_t op2 = buzzvm_stack_at(vm, 2);                              \
    buzzdarray_pop(vm->stack);                                           \
    buzzdarray_pop(vm->stack);                                           \
-   buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_INT);           \
+   buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_INT);           \
    res->i.value =                                                       \
       !(op2->o.type == BUZZTYPE_NIL ||                                  \
         (op2->i.type == BUZZTYPE_INT && op2->i.value == 0))             \
@@ -705,7 +710,7 @@ extern "C" {
    buzzobj_t op2 = buzzvm_stack_at(vm, 2);                              \
    buzzdarray_pop(vm->stack);                                           \
    buzzdarray_pop(vm->stack);                                           \
-   buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_INT);           \
+   buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_INT);           \
    res->i.value = (buzzobj_cmp(op2, op1) oper 0);                       \
    buzzvm_push(vm, res);
 
@@ -760,28 +765,28 @@ extern "C" {
    buzzdarray_pop(vm->stack);                                           \
    if(op1->o.type == BUZZTYPE_INT &&                                    \
       op2->o.type == BUZZTYPE_INT) {                                    \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_INT);        \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_INT);        \
       res->i.value = op2->i.value % op1->i.value;                       \
       if(res->i.value < 0) res->i.value += op1->i.value;                \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
    else if(op1->o.type == BUZZTYPE_FLOAT &&                             \
            op2->o.type == BUZZTYPE_FLOAT) {                             \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = fmodf(op2->f.value, op1->f.value);                 \
       if(res->f.value < 0.) res->f.value += op1->f.value;               \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
    else if(op1->o.type == BUZZTYPE_INT &&                               \
            op2->o.type == BUZZTYPE_FLOAT) {                             \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = fmodf(op2->f.value, op1->i.value);                 \
       if(res->f.value < 0.) res->f.value += op1->f.value;               \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
    else if(op1->o.type == BUZZTYPE_FLOAT &&                             \
            op2->o.type == BUZZTYPE_INT) {                               \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = fmodf(op2->i.value, op1->f.value);                 \
       if(res->f.value < 0.) res->f.value += op1->i.value;               \
       buzzvm_push(vm, res);                                             \
@@ -807,25 +812,25 @@ extern "C" {
    buzzdarray_pop(vm->stack);                                           \
    if(op1->o.type == BUZZTYPE_INT &&                                    \
       op2->o.type == BUZZTYPE_INT) {                                    \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = powf(op2->i.value, op1->i.value);                  \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
    else if(op1->o.type == BUZZTYPE_FLOAT &&                             \
            op2->o.type == BUZZTYPE_FLOAT) {                             \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = powf(op2->f.value, op1->f.value);                  \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
    else if(op1->o.type == BUZZTYPE_INT &&                               \
            op2->o.type == BUZZTYPE_FLOAT) {                             \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = powf(op2->f.value, op1->i.value);                  \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
    else if(op1->o.type == BUZZTYPE_FLOAT &&                             \
            op2->o.type == BUZZTYPE_INT) {                               \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = powf(op2->i.value, op1->f.value);                  \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
@@ -847,12 +852,12 @@ extern "C" {
    buzzobj_t op = buzzvm_stack_at(vm, 1);                               \
    buzzdarray_pop(vm->stack);                                           \
    if(op->o.type == BUZZTYPE_INT) {                                     \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_INT);        \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_INT);        \
       res->i.value = -op->i.value;                                      \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
    else if(op->o.type == BUZZTYPE_FLOAT) {                              \
-      buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_FLOAT);      \
+      buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_FLOAT);      \
       res->f.value = -op->f.value;                                      \
       buzzvm_push(vm, res);                                             \
    }                                                                    \
@@ -891,7 +896,7 @@ extern "C" {
    buzzvm_stack_assert((vm), 1);                                        \
    buzzobj_t op = buzzvm_stack_at(vm, 1);                               \
    buzzdarray_pop(vm->stack);                                           \
-   buzzobj_t res = buzzheap_newobj((vm)->heap, BUZZTYPE_INT);           \
+   buzzobj_t res = buzzheap_newobj((vm), BUZZTYPE_INT);           \
    res->i.value =                                                       \
       (op->o.type == BUZZTYPE_NIL ||                                    \
        (op->i.type == BUZZTYPE_INT && op->i.value == 0));               \
@@ -991,7 +996,7 @@ extern "C" {
  * Pushes an empty table onto the stack.
  * @param vm The VM data.
  */
-#define buzzvm_pusht(vm) { buzzobj_t o = buzzheap_newobj((vm)->heap, BUZZTYPE_TABLE); buzzvm_push(vm, o); }
+#define buzzvm_pusht(vm) { buzzobj_t o = buzzheap_newobj((vm), BUZZTYPE_TABLE); buzzvm_push(vm, o); }
 
 /*
  * Registers a string in the virtual machine.
